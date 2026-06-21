@@ -1,4 +1,5 @@
 import { SymbolView } from 'expo-symbols';
+import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -73,7 +74,9 @@ export default function ArchiveHomeScreen() {
                 모임 회차별 기록, 사진, 참석 현황을 한눈에 확인해요.
               </ThemedText>
             </View>
-            <Pressable style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+              onPress={() => router.push('./new')}>
               <SymbolView name="plus" size={22} tintColor="#FFFFFF" />
             </Pressable>
           </View>
@@ -93,7 +96,9 @@ export default function ArchiveHomeScreen() {
             </View>
           </View>
 
-          <Pressable style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}>
+          <Pressable
+            style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
+            onPress={() => router.push('./new')}>
             <View style={styles.createIconWrap}>
               <SymbolView name="camera.fill" size={18} tintColor="#5B7FFF" />
             </View>
@@ -129,7 +134,10 @@ export default function ArchiveHomeScreen() {
             {archiveItems.map((item) => (
               <Pressable
                 key={item.id}
-                style={({ pressed }) => [styles.archiveCard, pressed && styles.pressed]}>
+                style={({ pressed }) => [styles.archiveCard, pressed && styles.pressed]}
+                onPress={() =>
+                  router.push(`./${item.id}`)
+                }>
                 <View style={[styles.roundBadge, { backgroundColor: item.color }]}>
                   <ThemedText style={styles.roundNumber}>{item.id}</ThemedText>
                   <ThemedText style={styles.roundLabel}>회차</ThemedText>
