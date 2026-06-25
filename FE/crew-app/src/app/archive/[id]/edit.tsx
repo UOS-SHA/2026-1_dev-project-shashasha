@@ -1,19 +1,21 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { useArchiveStore } from './_layout';
+import { useArchiveStore } from '../_layout';
 
 const members = ['김민지', '이서연', '박지훈', '최예은', '정하늘', '한도윤'];
 
-export default function ArchiveNewScreen() {
-  const { addRecord } = useArchiveStore();
-  const [date, setDate] = useState('2025.04.12');
-  const [place, setPlace] = useState('성수 카페');
-  const [memo, setMemo] = useState('');
-  const [attendees, setAttendees] = useState<string[]>(['김민지', '이서연']);
+export default function ArchiveEditScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { records, updateRecord } = useArchiveStore();
+  const record = records.find((item) => item.id === id);
+  const [date, setDate] = useState(record?.date ?? '2025.04.12');
+  const [place, setPlace] = useState(record?.place ?? '');
+  const [memo, setMemo] = useState(record?.summary ?? '');
+  const [attendees, setAttendees] = useState<string[]>(record?.attendees ?? []);
 
   const toggleMember = (member: string) => {
     setAttendees((current) =>
@@ -21,26 +23,43 @@ export default function ArchiveNewScreen() {
     );
   };
 
-  const saveRecord = () => {
+  const saveEdit = () => {
+    if (!record) return;
     if (!/^\d{4}\.\d{2}\.\d{2}$/.test(date.trim())) {
       Alert.alert('날짜 형식을 확인해주세요', '날짜는 2025.04.12 형식으로 입력해주세요.');
       return;
     }
-
     if (!memo.trim()) {
-      Alert.alert('내용을 입력해주세요', '오늘 모임에서 어떤 활동을 했는지 간단히 적어주세요.');
+      Alert.alert('내용을 입력해주세요', '활동 내용을 비워둘 수 없어요.');
       return;
     }
 
-    addRecord({
+    updateRecord(record.id, {
       date,
       place,
       summary: memo,
       attendees,
       absentees: members.filter((member) => !attendees.includes(member)),
     });
-    router.replace('/archive');
+    router.replace(`/archive/${record.id}`);
   };
+
+  if (!record) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <View style={styles.header}>
+          <Pressable style={styles.headerButton} onPress={() => router.back()}>
+            <ThemedText style={styles.navIcon}>‹</ThemedText>
+          </Pressable>
+          <ThemedText style={styles.headerTitle}>기록 편집</ThemedText>
+          <View style={styles.headerButton} />
+        </View>
+        <View style={styles.notFound}>
+          <ThemedText style={styles.label}>수정할 기록을 찾을 수 없어요</ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -48,13 +67,21 @@ export default function ArchiveNewScreen() {
         <Pressable style={styles.headerButton} onPress={() => router.back()}>
           <ThemedText style={styles.navIcon}>‹</ThemedText>
         </Pressable>
-        <ThemedText style={styles.headerTitle}>기록 작성</ThemedText>
-        <Pressable style={styles.saveSmallButton} onPress={saveRecord}>
+        <ThemedText style={styles.headerTitle}>기록 편집</ThemedText>
+        <Pressable style={styles.saveSmallButton} onPress={saveEdit}>
           <ThemedText style={styles.saveSmallText}>저장</ThemedText>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.infoCard}>
+          <ThemedText style={styles.infoTitle}>{record.round}회차</ThemedText>
+          <ThemedText style={styles.infoSub}>
+            {record.date} · {record.place}
+          </ThemedText>
+          <ThemedText style={styles.infoHelp}>기존 기록을 수정하는 화면입니다.</ThemedText>
+        </View>
+
         <View style={styles.section}>
           <ThemedText style={styles.label}>사진</ThemedText>
           <View style={styles.photoRow}>
@@ -82,16 +109,9 @@ export default function ArchiveNewScreen() {
             style={styles.input}
             keyboardType="numbers-and-punctuation"
           />
-          <ThemedText style={styles.helper}>YYYY.MM.DD 형식으로 입력하면 요일은 자동으로 계산돼요.</ThemedText>
 
           <ThemedText style={styles.label}>모임 장소</ThemedText>
-          <TextInput
-            value={place}
-            onChangeText={setPlace}
-            placeholder="예: 성수 카페"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
-          />
+          <TextInput value={place} onChangeText={setPlace} placeholderTextColor="#94A3B8" style={styles.input} />
 
           <ThemedText style={styles.label}>활동 내용</ThemedText>
           <TextInput
@@ -107,7 +127,6 @@ export default function ArchiveNewScreen() {
 
         <View style={styles.section}>
           <ThemedText style={styles.label}>참석자 선택</ThemedText>
-          <ThemedText style={styles.helper}>참석한 멤버를 체크하면 목록과 상세 화면에 반영돼요.</ThemedText>
           <View style={styles.memberList}>
             {members.map((member) => {
               const selected = attendees.includes(member);
@@ -124,8 +143,8 @@ export default function ArchiveNewScreen() {
           </View>
         </View>
 
-        <Pressable style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]} onPress={saveRecord}>
-          <ThemedText style={styles.saveText}>기록 저장하기</ThemedText>
+        <Pressable style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]} onPress={saveEdit}>
+          <ThemedText style={styles.saveText}>수정 저장하기</ThemedText>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -150,9 +169,13 @@ const styles = StyleSheet.create({
   saveSmallButton: { borderRadius: 8, backgroundColor: '#5B7FFF', paddingHorizontal: 14, paddingVertical: 7 },
   saveSmallText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   content: { padding: 20, gap: 14, paddingBottom: 40 },
+  notFound: { flex: 1, justifyContent: 'center', padding: 24 },
+  infoCard: { backgroundColor: '#EEF2FF', borderRadius: 14, padding: 16, gap: 4 },
+  infoTitle: { color: '#5B7FFF', fontSize: 18, fontWeight: '900' },
+  infoSub: { color: '#475569', fontSize: 13, fontWeight: '800' },
+  infoHelp: { color: '#64748B', fontSize: 12, marginTop: 4 },
   section: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E8EDF3', gap: 10 },
   label: { color: '#1E1E2E', fontSize: 15, fontWeight: '900' },
-  helper: { color: '#64748B', fontSize: 12, lineHeight: 18 },
   photoRow: { flexDirection: 'row', gap: 8 },
   addPhoto: {
     width: 52,
