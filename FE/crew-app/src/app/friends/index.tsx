@@ -605,7 +605,11 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
   modalLayer: { flex: 1, justifyContent: 'center', paddingHorizontal: 22 },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(15, 23, 42, 0.48)',
     zIndex: 0,
   },
