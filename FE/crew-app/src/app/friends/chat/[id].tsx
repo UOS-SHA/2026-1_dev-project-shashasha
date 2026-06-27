@@ -656,7 +656,14 @@ const styles = StyleSheet.create({
   },
   sendButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   modalLayer: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.35)' },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+  },
   actionSheet: {
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
