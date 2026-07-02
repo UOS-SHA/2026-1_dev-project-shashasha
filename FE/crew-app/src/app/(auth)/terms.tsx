@@ -14,7 +14,7 @@ const terms = [
 ];
 
 export default function TermsScreen() {
-  const { setAgreed } = useOnboarding();
+  const { setAgreed, setAgreedMarketing } = useOnboarding();
   const [checked, setChecked] = useState<Set<string>>(new Set());
 
   const allChecked = checked.size === terms.length;
@@ -22,10 +22,15 @@ export default function TermsScreen() {
     () => terms.filter((item) => item.required).every((item) => checked.has(item.key)),
     [checked]
   );
+  const marketingChecked = checked.has('marketing');
 
   useEffect(() => {
     setAgreed(requiredChecked);
   }, [requiredChecked, setAgreed]);
+
+  useEffect(() => {
+    setAgreedMarketing(marketingChecked);
+  }, [marketingChecked, setAgreedMarketing]);
 
   const toggleAll = () => {
     setChecked(allChecked ? new Set() : new Set(terms.map((item) => item.key)));
@@ -87,7 +92,8 @@ export default function TermsScreen() {
       <View style={styles.footer}>
         <StepFooter
           primaryLabel="확인했어요"
-          note="이 화면은 데모이므로 동의 여부와 관계없이 다음 화면으로 이동합니다."
+          disabled={!requiredChecked}
+          note="서비스 이용약관과 개인정보 처리방침에 동의해야 가입할 수 있어요."
           onPrimary={() => router.push('/permissions')}
         />
       </View>

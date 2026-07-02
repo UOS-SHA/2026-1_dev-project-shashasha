@@ -17,4 +17,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    /** @아이디(handle)로 사용자 찾기 (친구 추가 시 사용) */
+    Optional<User> findByHandle(String handle);
 }

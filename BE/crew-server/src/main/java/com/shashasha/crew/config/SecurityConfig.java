@@ -11,8 +11,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 /**
  * 인증 관련 공통 빈(Bean) 설정.
  *  1) PasswordEncoder : 비밀번호를 BCrypt 로 암호화/대조하는 도구.
- *  2) JwtAuthFilter 등록 : "/users/**" 경로에만 토큰 검사 문지기를 세운다.
- *     (로그인/회원가입 /auth/** 와 모임 /meetings 는 토큰 없이도 접근 가능하게 둠)
+ *  2) JwtAuthFilter 등록 : 로그인이 필요한 "내 데이터" 경로에 토큰 검사 문지기를 세운다.
+ *     - 보호: /users, /schedules, /archives, /friends (사용자별 개인 데이터)
+ *     - 공개: 로그인/회원가입(/auth/**) 과 모임 목록(/meetings) 은 토큰 없이도 접근 가능
  */
 @Configuration
 public class SecurityConfig {
@@ -23,12 +24,18 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    /** JWT 문지기 필터를 /users/* 경로에만 적용해 등록한다. */
+    /** JWT 문지기 필터를 로그인이 필요한 경로들에 적용해 등록한다. */
     @Bean
     public FilterRegistrationBean<JwtAuthFilter> jwtAuthFilter(JwtTokenProvider tokenProvider) {
         FilterRegistrationBean<JwtAuthFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new JwtAuthFilter(tokenProvider));
-        registration.addUrlPatterns("/users/*"); // 이 경로로 오는 요청만 토큰 검사
+        // 컬렉션 경로(/schedules)와 하위 경로(/schedules/123)를 모두 확실히 잡으려고 둘 다 등록한다.
+        registration.addUrlPatterns(
+                "/users", "/users/*",
+                "/schedules", "/schedules/*",
+                "/archives", "/archives/*",
+                "/friends", "/friends/*"
+        );
         registration.setOrder(1);
         return registration;
     }

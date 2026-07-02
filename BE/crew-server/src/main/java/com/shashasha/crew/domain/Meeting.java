@@ -44,6 +44,16 @@ public class Meeting {
         this.status = status;
     }
 
+    // 기존 모임의 내용을 통째로 바꾼다 (PUT /meetings/{id} 에서 사용).
+    // 엔티티에 setter 를 흩어놓지 않고, "한 번에 갱신"하는 메서드로 모아 두면 변경 지점이 명확하다.
+    public void update(String name, String emoji, int memberCount, String nextLabel, MeetingStatus status) {
+        this.name = name;
+        this.emoji = emoji;
+        this.memberCount = memberCount;
+        this.nextLabel = nextLabel;
+        this.status = status;
+    }
+
     // 조회용 getter 들 (JPA 와 JSON 변환이 이 메서드들을 사용한다)
     public Long getId() { return id; }
     public String getName() { return name; }

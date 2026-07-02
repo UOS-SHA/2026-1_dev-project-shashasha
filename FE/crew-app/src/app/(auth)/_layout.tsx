@@ -30,6 +30,11 @@ export function stepProgress(step: OnboardingStep) {
 }
 
 type OnboardingValue = {
+  // 회원가입에 사용할 계정 정보 (email 화면에서 입력받아 complete 에서 최종 전송)
+  email: string;
+  setEmail: (value: string) => void;
+  password: string;
+  setPassword: (value: string) => void;
   nickname: string;
   setNickname: (value: string) => void;
   intro: string;
@@ -42,11 +47,15 @@ type OnboardingValue = {
   toggleCell: (key: string) => void;
   agreed: boolean;
   setAgreed: (value: boolean) => void;
+  agreedMarketing: boolean;
+  setAgreedMarketing: (value: boolean) => void;
 };
 
 const OnboardingContext = createContext<OnboardingValue | null>(null);
 
 function OnboardingProvider({ children }: PropsWithChildren) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [intro, setIntro] = useState('');
   const [notification, setNotification] = useState(true);
@@ -56,9 +65,14 @@ function OnboardingProvider({ children }: PropsWithChildren) {
     () => new Set(['0-0', '0-4', '1-0', '2-2', '3-4'])
   );
   const [agreed, setAgreed] = useState(false);
+  const [agreedMarketing, setAgreedMarketing] = useState(false);
 
   const value = useMemo<OnboardingValue>(
     () => ({
+      email,
+      setEmail,
+      password,
+      setPassword,
       nickname,
       setNickname,
       intro,
@@ -80,8 +94,10 @@ function OnboardingProvider({ children }: PropsWithChildren) {
         }),
       agreed,
       setAgreed,
+      agreedMarketing,
+      setAgreedMarketing,
     }),
-    [nickname, intro, notification, personalize, selectedCells, agreed]
+    [email, password, nickname, intro, notification, personalize, selectedCells, agreed, agreedMarketing]
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
