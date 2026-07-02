@@ -1,18 +1,70 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { signup, toAuthErrorMessage } from '@/api/auth';
 import { ThemedText } from '@/components/themed-text';
+import { useAuthStore } from '@/store/auth';
 import { Onb, useOnboarding } from './_layout';
 
 export default function CompleteScreen() {
-  const { nickname, selectedCells, notification, personalize } = useOnboarding();
+  const {
+    email,
+    password,
+    nickname,
+    intro,
+    selectedCells,
+    notification,
+    personalize,
+    agreed,
+    agreedMarketing,
+  } = useOnboarding();
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const items = [
     { label: '프로필', value: nickname.trim() ? '설정 완료' : '건너뜀' },
     { label: '기본 시간표', value: `${selectedCells.size}칸 설정 완료` },
     { label: '권한', value: notification || personalize ? '선택 완료' : '모두 끔' },
   ];
+
+  const handleStart = async () => {
+    if (submitting) {
+      return;
+    }
+    setError(null);
+
+    // 이메일/비밀번호는 email 화면에서만 입력받는다. (카카오 데모 등으로) 비어 있으면
+    // 회원가입을 진행할 수 없으므로 이메일 가입 화면으로 안내한다.
+    if (!email.trim() || !password) {
+      setError('이메일로 가입 정보를 먼저 입력해 주세요.');
+      router.replace('/email');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await signup({
+        email: email.trim(),
+        password,
+        nickname: nickname.trim(),
+        bio: intro.trim() || undefined,
+        notificationEnabled: notification,
+        personalizeEnabled: personalize,
+        agreedService: agreed,
+        agreedPrivacy: agreed,
+        agreedMarketing,
+      });
+      await setAuth(result.token, result.user);
+      router.replace('/home');
+    } catch (err) {
+      setError(toAuthErrorMessage(err, '회원가입에 실패했어요. 잠시 후 다시 시도해 주세요.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -45,10 +97,20 @@ export default function CompleteScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {error ? <ThemedText style={styles.errorNote}>{error}</ThemedText> : null}
         <Pressable
-          style={({ pressed }) => [styles.startButton, pressed && styles.pressed]}
-          onPress={() => router.replace('/home')}>
-          <ThemedText style={styles.startText}>SHASHASHA 시작하기</ThemedText>
+          style={({ pressed }) => [
+            styles.startButton,
+            submitting && styles.startDisabled,
+            pressed && !submitting && styles.pressed,
+          ]}
+          disabled={submitting}
+          onPress={handleStart}>
+          {submitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <ThemedText style={styles.startText}>SHASHASHA 시작하기</ThemedText>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -96,7 +158,8 @@ const styles = StyleSheet.create({
   row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rowLabel: { color: Onb.ink, fontSize: 16, fontWeight: '700' },
   rowValue: { color: Onb.green, fontSize: 16, fontWeight: '900' },
-  footer: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8 },
+  footer: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8, gap: 10 },
+  errorNote: { color: '#C0392B', fontSize: 13, lineHeight: 19, fontWeight: '700', textAlign: 'center' },
   startButton: {
     minHeight: 60,
     borderRadius: 18,
@@ -104,6 +167,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  startDisabled: { backgroundColor: '#A9BDB1' },
   startText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
   pressed: { opacity: 0.85 },
 });

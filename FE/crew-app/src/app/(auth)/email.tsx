@@ -1,19 +1,49 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { login, toAuthErrorMessage } from '@/api/auth';
 import { ThemedText } from '@/components/themed-text';
-import { Onb } from './_layout';
+import { useAuthStore } from '@/store/auth';
+import { Onb, useOnboarding } from './_layout';
 
 type Mode = 'login' | 'signup';
 
 export default function EmailScreen() {
+  const { email, setEmail, password, setPassword } = useOnboarding();
+  const setAuth = useAuthStore((state) => state.setAuth);
   const [mode, setMode] = useState<Mode>('signup');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const valid = email.includes('@') && password.length >= 4;
+
+  const handleSubmit = async () => {
+    if (!valid || submitting) {
+      return;
+    }
+    setError(null);
+
+    // 회원가입: 계정 정보는 컨텍스트에 담고 온보딩 단계로 진행,
+    // 실제 /auth/signup 호출은 마지막 complete 화면에서 이뤄진다.
+    if (mode === 'signup') {
+      router.push('/profile');
+      return;
+    }
+
+    // 로그인: 지금 바로 /auth/login 을 호출하고 성공하면 홈으로 이동.
+    setSubmitting(true);
+    try {
+      const result = await login({ email: email.trim(), password });
+      await setAuth(result.token, result.user);
+      router.replace('/home');
+    } catch (err) {
+      setError(toAuthErrorMessage(err, '이메일 또는 비밀번호를 확인해 주세요.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -57,11 +87,15 @@ export default function EmailScreen() {
             <ThemedText style={styles.label}>이메일</ThemedText>
             <TextInput
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                setError(null);
+              }}
               placeholder="example@email.com"
               placeholderTextColor={Onb.sub}
               autoCapitalize="none"
               keyboardType="email-address"
+              editable={!submitting}
               style={styles.input}
             />
           </View>
@@ -70,16 +104,24 @@ export default function EmailScreen() {
             <ThemedText style={styles.label}>비밀번호</ThemedText>
             <TextInput
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                setError(null);
+              }}
               placeholder="비밀번호를 입력해 주세요"
               placeholderTextColor={Onb.sub}
               secureTextEntry
+              editable={!submitting}
               style={styles.input}
             />
           </View>
 
+          {error ? <ThemedText style={styles.errorNote}>{error}</ThemedText> : null}
+
           <ThemedText style={styles.demoNote}>
-            데모 화면이라 입력값은 저장되지 않고 다음 단계로 이동해요.
+            {mode === 'signup'
+              ? '다음 단계에서 프로필을 설정하면 가입이 완료돼요.'
+              : '가입할 때 사용한 이메일과 비밀번호를 입력해 주세요.'}
           </ThemedText>
         </ScrollView>
 
@@ -87,14 +129,18 @@ export default function EmailScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.submit,
-              !valid && styles.submitDisabled,
-              pressed && valid && styles.pressed,
+              (!valid || submitting) && styles.submitDisabled,
+              pressed && valid && !submitting && styles.pressed,
             ]}
-            disabled={!valid}
-            onPress={() => router.push('/profile')}>
-            <ThemedText style={styles.submitText}>
-              {mode === 'signup' ? '가입하고 계속하기' : '로그인'}
-            </ThemedText>
+            disabled={!valid || submitting}
+            onPress={handleSubmit}>
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <ThemedText style={styles.submitText}>
+                {mode === 'signup' ? '가입하고 계속하기' : '로그인'}
+              </ThemedText>
+            )}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -142,6 +188,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   demoNote: { color: Onb.sub, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  errorNote: { color: '#C0392B', fontSize: 13, lineHeight: 19, fontWeight: '700', marginTop: 4 },
   footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
   submit: {
     minHeight: 56,
