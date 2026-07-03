@@ -1,22 +1,30 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { toApiErrorMessage } from '@/api/client';
+import { getMeetingMembers } from '@/api/meetings';
 import { ThemedText } from '@/components/themed-text';
 import { useArchiveStore } from '../_layout';
-
-const members = ['김민지', '이서연', '박지훈', '최예은', '정하늘', '한도윤'];
 
 export default function ArchiveEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { records, updateRecord } = useArchiveStore();
   const record = records.find((item) => item.id === id);
+  const [members, setMembers] = useState<string[]>([]);
   const [date, setDate] = useState(record?.date ?? '2025.04.12');
   const [place, setPlace] = useState(record?.place ?? '');
   const [memo, setMemo] = useState(record?.summary ?? '');
   const [attendees, setAttendees] = useState<string[]>(record?.attendees ?? []);
+
+  // 이 기록이 속한 모임의 멤버를 참석자 후보로 불러온다.
+  useEffect(() => {
+    if (record?.meetingId == null) return;
+    getMeetingMembers(record.meetingId)
+      .then(setMembers)
+      .catch(() => setMembers([]));
+  }, [record?.meetingId]);
 
   const toggleMember = (member: string) => {
     setAttendees((current) =>
@@ -37,6 +45,7 @@ export default function ArchiveEditScreen() {
 
     try {
       await updateRecord(record.id, {
+        meetingId: record.meetingId, // 소속 모임은 유지 (BE 에서 수정 시 무시)
         date,
         place,
         summary: memo,

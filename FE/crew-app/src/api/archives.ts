@@ -3,6 +3,8 @@ import { apiClient } from './client';
 // 백엔드 ArchiveResponse 와 1:1 대응. (FE archive 의 ArchiveRecord 와 동일 모양)
 export type ArchiveRecord = {
   id: string;
+  meetingId: number;
+  meetingName: string;
   round: number;
   date: string;
   day: string;
@@ -17,8 +19,9 @@ export type ArchiveRecord = {
 };
 
 // POST/PUT /archives 요청 body (백엔드 ArchiveCreateRequest 와 대응).
-// round/day/title/color 등은 서버가 자동으로 채운다.
+// round/day/title/color 등은 서버가 자동으로 채운다. (meetingId 는 생성 시 필수)
 export type ArchivePayload = {
+  meetingId: number;
   date: string;
   place: string;
   summary: string;

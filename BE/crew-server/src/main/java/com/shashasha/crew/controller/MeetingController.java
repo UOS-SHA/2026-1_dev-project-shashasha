@@ -2,7 +2,9 @@ package com.shashasha.crew.controller;
 
 import com.shashasha.crew.dto.MeetingCreateRequest;
 import com.shashasha.crew.dto.MeetingResponse;
+import com.shashasha.crew.security.JwtAuthFilter;
 import com.shashasha.crew.service.MeetingService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -37,11 +39,13 @@ public class MeetingController {
         return meetingService.findById(id);
     }
 
-    /** POST /meetings → 모임 생성. 성공하면 201 Created 와 만든 모임을 응답. */
+    /** POST /meetings → 모임 생성. 성공하면 201 Created 와 만든 모임을 응답. (만든 사람이 첫 멤버) */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public MeetingResponse createMeeting(@Valid @RequestBody MeetingCreateRequest request) {
-        return meetingService.create(request);
+    public MeetingResponse createMeeting(HttpServletRequest httpRequest,
+                                         @Valid @RequestBody MeetingCreateRequest request) {
+        Long userId = (Long) httpRequest.getAttribute(JwtAuthFilter.USER_ID_ATTRIBUTE);
+        return meetingService.create(request, userId);
     }
 
     /** PUT /meetings/{id} → 모임 수정. 수정된 모임을 응답. */

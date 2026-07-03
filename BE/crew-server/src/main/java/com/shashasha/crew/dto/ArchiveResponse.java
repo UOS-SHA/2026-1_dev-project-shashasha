@@ -11,6 +11,8 @@ import java.util.List;
  */
 public record ArchiveResponse(
         String id,
+        Long meetingId,
+        String meetingName,
         int round,
         String date,
         String day,
@@ -23,9 +25,11 @@ public record ArchiveResponse(
         String color,
         String thumbnail
 ) {
-    public static ArchiveResponse from(ArchiveRecord r) {
+    public static ArchiveResponse from(ArchiveRecord r, String meetingName) {
         return new ArchiveResponse(
                 String.valueOf(r.getId()),
+                r.getMeetingId(),
+                meetingName,
                 r.getRound(),
                 r.getDate(),
                 r.getDay(),

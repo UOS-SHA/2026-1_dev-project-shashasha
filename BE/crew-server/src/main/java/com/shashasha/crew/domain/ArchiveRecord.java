@@ -27,7 +27,10 @@ public class ArchiveRecord {
     private Long userId;             // 이 기록의 주인 (User.id)
 
     @Column(nullable = false)
-    private int round;              // 회차 (사용자별 1,2,3...)
+    private Long meetingId;          // 어느 모임의 기록인지 (Meeting.id)
+
+    @Column(nullable = false)
+    private int round;              // 회차 (모임별 1,2,3...)
 
     @Column(nullable = false)
     private String date;            // "2025.04.12" 형식 (FE 와 동일)
@@ -58,10 +61,11 @@ public class ArchiveRecord {
     protected ArchiveRecord() {
     }
 
-    public ArchiveRecord(Long userId, int round, String date, String day, String place,
+    public ArchiveRecord(Long userId, Long meetingId, int round, String date, String day, String place,
                          String title, String summary, List<String> attendees, List<String> absentees,
                          int photos, String color, String thumbnail) {
         this.userId = userId;
+        this.meetingId = meetingId;
         this.round = round;
         this.date = date;
         this.day = day;
@@ -88,6 +92,7 @@ public class ArchiveRecord {
 
     public Long getId() { return id; }
     public Long getUserId() { return userId; }
+    public Long getMeetingId() { return meetingId; }
     public int getRound() { return round; }
     public String getDate() { return date; }
     public String getDay() { return day; }

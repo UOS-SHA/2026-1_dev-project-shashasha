@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,         // 로그아웃/탈퇴 확인 팝업에 사용
   ScrollView,
@@ -10,9 +10,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { getMyProfile, type UserProfile } from '@/api/auth';
+import { useAuthStore } from '@/store/auth';
+
 // ===== 색상 상수 =====
 const COLOR_BG     = '#eaedf7'; // 화면 배경
-const COLOR_ACCENT = '#3a6ff5'; // 파란 강조색
+const COLOR_ACCENT = '#5B7FFF'; // 파란 강조색
 const COLOR_TEXT   = '#1a2340'; // 기본 텍스트
 const COLOR_GRAY   = '#8e95a9'; // 회색 텍스트
 const COLOR_RED    = '#e03535'; // 위험 항목(로그아웃/탈퇴)
@@ -28,6 +31,17 @@ type WithdrawStep = 0 | 1 | 2;
 export default function SettingsScreen() {
   // useRouter: expo-router 내비게이션 훅
   const router = useRouter();
+  const signOut = useAuthStore((state) => state.signOut);
+
+  // ─── 내 프로필 (GET /users/me) ───
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  useEffect(() => {
+    getMyProfile()
+      .then(setProfile)
+      .catch(() => {
+        // 조회 실패 시 빈 값 유지
+      });
+  }, []);
 
   // ─── 로그아웃 모달 표시 여부 ───
   const [logoutVisible, setLogoutVisible] = useState<boolean>(false);
@@ -36,11 +50,11 @@ export default function SettingsScreen() {
   // 0이면 모달 닫힘, 1이면 1단계 모달, 2이면 2단계 모달
   const [withdrawStep, setWithdrawStep] = useState<WithdrawStep>(0);
 
-  // ─── 로그아웃 처리 ───
-  // API 연동 전: console.log로만 처리
-  const handleLogout = () => {
-    console.log('[설정] 로그아웃 처리');
+  // ─── 로그아웃 처리: 저장된 토큰/사용자 정보를 지우고 시작 화면으로 ───
+  const handleLogout = async () => {
     setLogoutVisible(false);
+    await signOut();
+    router.replace('/');
   };
 
   // ─── 회원 탈퇴 최종 처리 (2단계 "탈퇴하기" 버튼) ───
@@ -85,8 +99,8 @@ export default function SettingsScreen() {
 
             {/* 이름 + 이메일 */}
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>홍길동</Text>
-              <Text style={styles.profileEmail}>user@example.com</Text>
+              <Text style={styles.profileName}>{profile?.nickname ?? ''}</Text>
+              <Text style={styles.profileEmail}>{profile?.email ?? ''}</Text>
             </View>
 
             {/* 오른쪽 화살표 */}

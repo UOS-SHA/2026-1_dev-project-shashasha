@@ -49,7 +49,7 @@ const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const DAY_INDICES = [0, 1, 2, 3, 4, 5, 6];
 
 // 색상 상수
-const COLOR_FIXED = '#3a6ff5';       // 고정 일정 강조색 (파란색)
+const COLOR_FIXED = '#5B7FFF';       // 고정 일정 강조색 (파란색)
 const COLOR_VAR = '#e07830';         // 변동 일정 강조색 (오렌지색)
 const COLOR_BG = '#eaedf7';          // 화면 배경
 const COLOR_FIXED_BLOCK = '#cddeff'; // 고정 블록 배경

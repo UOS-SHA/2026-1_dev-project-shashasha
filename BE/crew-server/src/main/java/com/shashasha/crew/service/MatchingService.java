@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.*;
 
 /**
@@ -27,6 +28,10 @@ public class MatchingService {
     private record DayDef(String shortLabel, String fullLabel, int dayOfWeek, String eng) {}
 
     private static final List<DayDef> DAYS = List.of(
+            new DayDef("월", "월요일", 0, "mon"),
+            new DayDef("화", "화요일", 1, "tue"),
+            new DayDef("수", "수요일", 2, "wed"),
+            new DayDef("목", "목요일", 3, "thu"),
             new DayDef("금", "금요일", 4, "fri"),
             new DayDef("토", "토요일", 5, "sat"),
             new DayDef("일", "일요일", 6, "sun")
@@ -42,13 +47,29 @@ public class MatchingService {
     private final MeetingMemberRepository memberRepository;
     private final ScheduleRepository scheduleRepository;
     private final VoteRepository voteRepository;
+    private final UserRepository userRepository;
 
     public MatchingService(MeetingRepository meetingRepository, MeetingMemberRepository memberRepository,
-                           ScheduleRepository scheduleRepository, VoteRepository voteRepository) {
+                           ScheduleRepository scheduleRepository, VoteRepository voteRepository,
+                           UserRepository userRepository) {
         this.meetingRepository = meetingRepository;
         this.memberRepository = memberRepository;
         this.scheduleRepository = scheduleRepository;
         this.voteRepository = voteRepository;
+        this.userRepository = userRepository;
+    }
+
+    /** 이 모임 멤버들의 이름(닉네임) 목록. 활동 기록의 참석자 선택 등에 쓴다. */
+    @Transactional
+    public List<String> getMemberNames(Long meetingId, Long userId) {
+        requireMeeting(meetingId);
+        ensureMember(meetingId, userId); // 접속자도 멤버로 포함시켜 이름이 빠지지 않게
+        List<String> names = new ArrayList<>();
+        for (MeetingMember member : memberRepository.findByMeetingId(meetingId)) {
+            userRepository.findById(member.getUserId())
+                    .ifPresent(u -> names.add(u.getNickname()));
+        }
+        return names;
     }
 
     /** 통합 시간표: 요일×시간 그리드의 가능 인원 + 골든타임 Top3 */
@@ -92,10 +113,14 @@ public class MatchingService {
         return new VoteStateResponse(memberSchedules.size(), golden, myVote, meeting.getConfirmedSlot());
     }
 
-    /** 투표(또는 재투표): 내 표를 slotId 시간대로 옮긴다. */
+    /** 투표(또는 재투표): 내 표를 slotId 시간대로 옮긴다. 확정된 모임은 투표할 수 없다. */
     @Transactional
     public VoteStateResponse vote(Long meetingId, Long userId, String slotId) {
-        requireMeeting(meetingId);
+        Meeting meeting = requireMeeting(meetingId);
+        if (meeting.getConfirmedSlot() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "ALREADY_CONFIRMED",
+                    "이미 일정이 확정된 모임이라 투표할 수 없어요");
+        }
         requireValidSlot(slotId);
         ensureMember(meetingId, userId);
 
@@ -108,15 +133,15 @@ public class MatchingService {
         return getVoteState(meetingId, userId);
     }
 
-    /** 확정: 투표 결과 중 한 시간대로 모임 일정을 확정한다. */
+    /** 확정: 투표 결과 중 한 시간대로 모임 일정을 확정한다. 라벨은 실제 날짜로 만든다. */
     @Transactional
     public VoteStateResponse confirm(Long meetingId, Long userId, String slotId) {
         Meeting meeting = requireMeeting(meetingId);
-        DayDef day = requireValidSlot(slotId);
+        requireValidSlot(slotId);
         ensureMember(meetingId, userId);
 
-        int startHour = startHourOf(slotId);
-        String label = day.fullLabel() + " · " + timeLabel(startHour);
+        // "sat-18" → "7월 5일 토 · 오후 6:00" 처럼 실제 날짜 라벨로 (모임 카드 날짜 표기 통일)
+        String label = SlotLabel.dateLabel(slotId, LocalDate.now());
         meeting.confirm(slotId, label); // 상태 CONFIRMED + 홈 카드 라벨 갱신 (dirty checking 으로 UPDATE)
 
         return getVoteState(meetingId, userId);
@@ -133,11 +158,12 @@ public class MatchingService {
                 String code = day.eng() + "-" + startHour;
                 int available = availableCount(memberSchedules, day.dayOfWeek(), startHour);
                 int votes = voteCounts.getOrDefault(code, 0);
-                all.add(new GoldenSlotResponse(code, day.fullLabel(), timeLabel(startHour), available, votes));
+                all.add(new GoldenSlotResponse(code, day.fullLabel(), SlotLabel.timeLabel(startHour), available, votes));
             }
         }
-        // 가능 인원 많은 순 (동점이면 원래 순서 유지 = 안정 정렬)
-        all.sort(Comparator.comparingInt(GoldenSlotResponse::available).reversed());
+        // 가능 인원 많은 순, 동점이면 득표 많은 순 (투표가 몰린 시간대가 골든에 남도록)
+        all.sort(Comparator.comparingInt(GoldenSlotResponse::available).reversed()
+                .thenComparing(Comparator.comparingInt(GoldenSlotResponse::votes).reversed()));
         return all.subList(0, Math.min(GOLDEN_COUNT, all.size()));
     }
 
@@ -221,16 +247,5 @@ public class MatchingService {
         } catch (Exception e) {
             return -1;
         }
-    }
-
-    /** 시작 시각(시) → "오전 10:00" / "오후 2:00" 라벨 */
-    private String timeLabel(int hour) {
-        if (hour < 12) {
-            return "오전 " + hour + ":00";
-        }
-        if (hour == 12) {
-            return "오후 12:00";
-        }
-        return "오후 " + (hour - 12) + ":00";
     }
 }

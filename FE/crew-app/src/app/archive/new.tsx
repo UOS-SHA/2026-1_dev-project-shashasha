@@ -1,21 +1,42 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { toApiErrorMessage } from '@/api/client';
+import { getMeetingMembers, getMeetings, type Meeting } from '@/api/meetings';
 import { ThemedText } from '@/components/themed-text';
 import { useArchiveStore } from './_layout';
 
-const members = ['김민지', '이서연', '박지훈', '최예은', '정하늘', '한도윤'];
-
 export default function ArchiveNewScreen() {
   const { addRecord } = useArchiveStore();
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetingId, setMeetingId] = useState<number | null>(null);
+  const [members, setMembers] = useState<string[]>([]);
   const [date, setDate] = useState('2025.04.12');
   const [place, setPlace] = useState('성수 카페');
   const [memo, setMemo] = useState('');
-  const [attendees, setAttendees] = useState<string[]>(['김민지', '이서연']);
+  const [attendees, setAttendees] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // 내 모임 목록을 불러와 첫 모임을 기본 선택
+  useEffect(() => {
+    getMeetings()
+      .then((list) => {
+        setMeetings(list);
+        if (list.length > 0) setMeetingId(list[0].id);
+      })
+      .catch(() => {});
+  }, []);
+
+  // 선택한 모임이 바뀌면 그 모임의 멤버를 참석자 후보로 불러온다
+  useEffect(() => {
+    if (meetingId == null) return;
+    setAttendees([]);
+    getMeetingMembers(meetingId)
+      .then(setMembers)
+      .catch(() => setMembers([]));
+  }, [meetingId]);
 
   const toggleMember = (member: string) => {
     setAttendees((current) =>
@@ -25,6 +46,10 @@ export default function ArchiveNewScreen() {
 
   const saveRecord = async () => {
     if (saving) return;
+    if (meetingId == null) {
+      Alert.alert('모임을 선택해주세요', '어느 모임의 기록인지 먼저 선택해주세요.');
+      return;
+    }
     if (!/^\d{4}\.\d{2}\.\d{2}$/.test(date.trim())) {
       Alert.alert('날짜 형식을 확인해주세요', '날짜는 2025.04.12 형식으로 입력해주세요.');
       return;
@@ -38,6 +63,7 @@ export default function ArchiveNewScreen() {
     setSaving(true);
     try {
       await addRecord({
+        meetingId,
         date,
         place,
         summary: memo,
@@ -65,6 +91,27 @@ export default function ArchiveNewScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.section}>
+          <ThemedText style={styles.label}>모임 선택</ThemedText>
+          <ThemedText style={styles.helper}>어느 모임의 활동 기록인지 골라주세요.</ThemedText>
+          <View style={styles.meetingRow}>
+            {meetings.map((meeting) => {
+              const selected = meeting.id === meetingId;
+
+              return (
+                <Pressable
+                  key={meeting.id}
+                  style={[styles.meetingChip, selected && styles.meetingChipOn]}
+                  onPress={() => setMeetingId(meeting.id)}>
+                  <ThemedText style={[styles.meetingChipText, selected && styles.meetingChipTextOn]}>
+                    {meeting.emoji} {meeting.name}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <View style={styles.section}>
           <ThemedText style={styles.label}>사진</ThemedText>
           <View style={styles.photoRow}>
@@ -163,6 +210,18 @@ const styles = StyleSheet.create({
   section: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E8EDF3', gap: 10 },
   label: { color: '#1E1E2E', fontSize: 15, fontWeight: '900' },
   helper: { color: '#64748B', fontSize: 12, lineHeight: 18 },
+  meetingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  meetingChip: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  meetingChipOn: { borderColor: '#5B7FFF', backgroundColor: '#EEF2FF' },
+  meetingChipText: { color: '#475569', fontSize: 13, fontWeight: '700' },
+  meetingChipTextOn: { color: '#3A4FC4', fontWeight: '900' },
   photoRow: { flexDirection: 'row', gap: 8 },
   addPhoto: {
     width: 52,

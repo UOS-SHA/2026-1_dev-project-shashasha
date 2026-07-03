@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -12,9 +12,9 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 const C = {
   bg: '#F3F4EE',
   card: '#FFFFFF',
-  green: '#2F5D45',
-  chip: '#DCE8DF',
-  chipText: '#2F5D45',
+  green: '#5B7FFF',
+  chip: '#E3EAFF',
+  chipText: '#3A4FC4',
   ink: '#1F2A24',
   sub: '#8A8F8A',
   line: '#E6E7E0',
@@ -35,22 +35,26 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    getMeetings()
-      .then((data) => {
-        if (active) setMeetings(data);
-      })
-      .catch((err) => {
-        if (active) setError(toApiErrorMessage(err, '모임을 불러오지 못했어요.'));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  // 화면에 들어올 때마다 목록을 새로 불러온다 (모임 생성·삭제 후 돌아오면 반영됨)
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setError(null);
+      getMeetings()
+        .then((data) => {
+          if (active) setMeetings(data);
+        })
+        .catch((err) => {
+          if (active) setError(toApiErrorMessage(err, '모임을 불러오지 못했어요.'));
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   // 이번 주 확정 일정 요약: 확정 상태인 첫 모임을 보여준다.
   const confirmedMeeting = meetings.find((meeting) => meeting.status === 'confirmed');
@@ -121,7 +125,9 @@ export default function HomeScreen() {
           {/* 1.2.1 내가 가입한 모임 리스트 */}
           <View style={styles.sectionRow}>
             <ThemedText style={styles.sectionTitle}>내 모임</ThemedText>
-            <ThemedText style={styles.sectionMeta}>{meetings.length}개</ThemedText>
+            <Pressable onPress={() => router.push('/settings/new-meeting')} hitSlop={8}>
+              <ThemedText style={styles.newMeetingLink}>+ 새 모임</ThemedText>
+            </Pressable>
           </View>
 
           {loading ? (
@@ -228,6 +234,7 @@ const styles = StyleSheet.create({
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   sectionTitle: { color: C.ink, fontSize: 18, fontWeight: '900' },
   sectionMeta: { color: C.sub, fontSize: 13, fontWeight: '700' },
+  newMeetingLink: { color: C.green, fontSize: 14, fontWeight: '900' },
   stateBox: { paddingVertical: 28, alignItems: 'center', justifyContent: 'center' },
   stateText: { color: C.sub, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   list: { gap: 10 },

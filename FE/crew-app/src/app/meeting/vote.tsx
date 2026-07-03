@@ -7,17 +7,21 @@ import { ThemedText } from '@/components/themed-text';
 import { Mc, useMeeting } from './_layout';
 
 export default function VoteScreen() {
-  const { slots, myVote, castVote, confirm } = useMeeting();
+  const { slots, myVote, castVote, confirm, totalMembers, confirmedId } = useMeeting();
   const totalVotes = slots.reduce((sum, slot) => sum + slot.votes, 0);
+  const locked = confirmedId != null; // 이미 확정된 모임이면 투표 마감
+
+  // 확정은 "내가 고른 것"이 아니라 "가장 표를 많이 받은 시간대"로 정한다.
+  const winner = slots.length > 0 ? [...slots].sort((a, b) => b.votes - a.votes)[0] : null;
 
   const onVote = (slotId: string) => {
     castVote(slotId).catch((err) => Alert.alert('오류', toApiErrorMessage(err, '투표에 실패했어요.')));
   };
 
   const onConfirm = async () => {
-    if (!myVote) return;
+    if (!winner) return;
     try {
-      await confirm(myVote);
+      await confirm(winner.id); // 최다 득표 슬롯으로 확정
       router.push('/meeting/confirmed');
     } catch (err) {
       Alert.alert('오류', toApiErrorMessage(err, '일정 확정에 실패했어요.'));
@@ -36,7 +40,15 @@ export default function VoteScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ThemedText style={styles.title}>언제 만날까요?</ThemedText>
-        <ThemedText style={styles.sub}>추천 시간 중 하나를 골라 투표해 주세요. 현재 {totalVotes}명 참여.</ThemedText>
+        <ThemedText style={styles.sub}>
+          추천 시간 중 하나를 골라 투표해 주세요. 전체 {totalMembers}명 중 {totalVotes}명 참여.
+        </ThemedText>
+
+        {locked ? (
+          <View style={styles.lockedBanner}>
+            <ThemedText style={styles.lockedText}>이미 일정이 확정되어 투표가 마감됐어요.</ThemedText>
+          </View>
+        ) : null}
 
         <View style={styles.list}>
           {slots.map((slot) => {
@@ -46,6 +58,7 @@ export default function VoteScreen() {
             return (
               <Pressable
                 key={slot.id}
+                disabled={locked}
                 style={[styles.card, selected && styles.cardSelected]}
                 onPress={() => onVote(slot.id)}>
                 <View style={styles.cardHead}>
@@ -68,16 +81,22 @@ export default function VoteScreen() {
         </View>
 
         <ThemedText style={styles.note}>
-          데모 화면이라 다른 멤버의 투표는 미리 반영돼 있어요. 내 선택만 실시간으로 더해집니다.
+          확정하면 가장 많은 표를 받은 시간대로 일정이 정해져요.
         </ThemedText>
       </ScrollView>
 
       <View style={styles.footer}>
         <Pressable
-          style={({ pressed }) => [styles.cta, !myVote && styles.ctaDisabled, pressed && myVote && styles.pressed]}
-          disabled={!myVote}
+          style={({ pressed }) => [
+            styles.cta,
+            (!winner || locked) && styles.ctaDisabled,
+            pressed && !!winner && !locked && styles.pressed,
+          ]}
+          disabled={!winner || locked}
           onPress={onConfirm}>
-          <ThemedText style={styles.ctaText}>투표 확정하고 일정 잡기</ThemedText>
+          <ThemedText style={styles.ctaText}>
+            {locked ? '확정된 일정' : '최다 득표로 일정 확정하기'}
+          </ThemedText>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -108,7 +127,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Mc.line,
   },
-  cardSelected: { borderColor: Mc.green, backgroundColor: '#F4F8F5' },
+  cardSelected: { borderColor: Mc.green, backgroundColor: '#EEF2FF' },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   radio: {
     width: 24,
@@ -128,6 +147,8 @@ const styles = StyleSheet.create({
   barTrack: { height: 8, borderRadius: 4, backgroundColor: '#EBEDE6', overflow: 'hidden' },
   barFill: { height: 8, borderRadius: 4, backgroundColor: Mc.green },
   note: { color: Mc.sub, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  lockedBanner: { backgroundColor: Mc.notice, borderRadius: 12, padding: 14, marginTop: 4 },
+  lockedText: { color: Mc.noticeText, fontSize: 13, fontWeight: '700', lineHeight: 19 },
   footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
   cta: {
     minHeight: 56,

@@ -1,10 +1,12 @@
 package com.shashasha.crew.service;
 
 import com.shashasha.crew.domain.Meeting;
+import com.shashasha.crew.domain.MeetingMember;
 import com.shashasha.crew.domain.MeetingStatus;
 import com.shashasha.crew.dto.MeetingCreateRequest;
 import com.shashasha.crew.dto.MeetingResponse;
 import com.shashasha.crew.exception.ApiException;
+import com.shashasha.crew.repository.MeetingMemberRepository;
 import com.shashasha.crew.repository.MeetingRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,30 +22,31 @@ import java.util.List;
 public class MeetingService {
 
     private final MeetingRepository meetingRepository;
+    private final MeetingMemberRepository memberRepository;
 
-    // 생성자 주입: Spring 이 MeetingRepository 구현체를 알아서 넣어준다.
-    public MeetingService(MeetingRepository meetingRepository) {
+    // 생성자 주입: Spring 이 구현체를 알아서 넣어준다.
+    public MeetingService(MeetingRepository meetingRepository, MeetingMemberRepository memberRepository) {
         this.meetingRepository = meetingRepository;
+        this.memberRepository = memberRepository;
     }
 
-    /** 모임 전체 조회 → 응답 DTO 리스트로 변환 */
+    /** 모임 전체 조회 → 응답 DTO 리스트로 변환 (members 는 실제 멤버 수) */
     @Transactional(readOnly = true)
     public List<MeetingResponse> findAll() {
         return meetingRepository.findAll().stream()
-                .map(MeetingResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
     /** 모임 단건 조회 (GET /meetings/{id}). 없으면 404. */
     @Transactional(readOnly = true)
     public MeetingResponse findById(Long id) {
-        Meeting meeting = getOrThrow(id);
-        return MeetingResponse.from(meeting);
+        return toResponse(getOrThrow(id));
     }
 
-    /** 모임 생성 후, 생성된 결과를 응답 DTO 로 반환 */
+    /** 모임 생성 후, 생성된 결과를 응답 DTO 로 반환. 만든 사람은 곧바로 멤버가 된다. */
     @Transactional
-    public MeetingResponse create(MeetingCreateRequest req) {
+    public MeetingResponse create(MeetingCreateRequest req, Long creatorUserId) {
         Meeting meeting = new Meeting(
                 req.name(),
                 req.emoji(),
@@ -52,7 +55,8 @@ public class MeetingService {
                 parseStatus(req.status())
         );
         Meeting saved = meetingRepository.save(meeting); // INSERT 실행
-        return MeetingResponse.from(saved);
+        memberRepository.save(new MeetingMember(saved.getId(), creatorUserId)); // 생성자를 멤버로
+        return toResponse(saved);
     }
 
     /** 모임 수정 (PUT /meetings/{id}). 없으면 404. */
@@ -67,7 +71,7 @@ public class MeetingService {
                 parseStatus(req.status())
         );
         // JPA 변경 감지(dirty checking): 트랜잭션이 끝날 때 바뀐 필드가 자동 UPDATE 된다.
-        return MeetingResponse.from(meeting);
+        return toResponse(meeting);
     }
 
     /** 모임 삭제 (DELETE /meetings/{id}). 없으면 404. */
@@ -75,6 +79,12 @@ public class MeetingService {
     public void delete(Long id) {
         Meeting meeting = getOrThrow(id);
         meetingRepository.delete(meeting);
+    }
+
+    /** Meeting → 응답 DTO. members 에 실제 멤버 수를 채워준다. */
+    private MeetingResponse toResponse(Meeting meeting) {
+        int members = (int) memberRepository.countByMeetingId(meeting.getId());
+        return MeetingResponse.of(meeting, members);
     }
 
     /** id 로 모임을 찾되, 없으면 공통 404 예외를 던지는 헬퍼. */

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,25 +9,34 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { getMyProfile, type UserProfile } from '@/api/auth';
+
 // ===== 색상 상수 =====
 const COLOR_BG     = '#eaedf7';
-const COLOR_ACCENT = '#3a6ff5'; // 파란 강조색 (아바타 배경, 수정 배지, 버튼)
+const COLOR_ACCENT = '#5B7FFF'; // 파란 강조색 (아바타 배경, 수정 배지, 버튼)
 const COLOR_TEXT   = '#1a2340';
 const COLOR_GRAY   = '#8e95a9';
 const COLOR_BORDER = '#dde0ee';
 
-// ===== 하드코딩된 프로필 데이터 (API 연동 전 임시) =====
-const PROFILE = {
-  name:     '홍길동',
-  handle:   '@username',
-  email:    'user@example.com',
-  bio:      '',             // 비어있으면 회색 이탤릭 텍스트로 표시
-  joinedAt: '2026.05.09',
-};
-
 // ===== 메인 컴포넌트 =====
 export default function ProfileScreen() {
   const router = useRouter();
+
+  // GET /users/me 로 내 프로필을 불러온다.
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  useEffect(() => {
+    getMyProfile()
+      .then(setProfile)
+      .catch(() => {
+        // 조회 실패 시 빈 값 유지
+      });
+  }, []);
+
+  const name = profile?.nickname ?? '';
+  const handle = profile?.handle ?? '';
+  const email = profile?.email ?? '';
+  const bio = profile?.bio ?? '';
+  const joinedAt = profile?.joinedAt ? profile.joinedAt.replaceAll('-', '.') : '';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -65,9 +75,9 @@ export default function ProfileScreen() {
             </View>
 
             {/* 이름 */}
-            <Text style={styles.profileName}>{PROFILE.name}</Text>
+            <Text style={styles.profileName}>{name}</Text>
             {/* 이메일 */}
-            <Text style={styles.profileEmail}>{PROFILE.email}</Text>
+            <Text style={styles.profileEmail}>{email}</Text>
           </View>
         </View>
 
@@ -81,26 +91,26 @@ export default function ProfileScreen() {
           {/* 이름 */}
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoLabel}>이름</Text>
-            <Text style={styles.infoValue}>{PROFILE.name}</Text>
+            <Text style={styles.infoValue}>{name}</Text>
           </View>
 
           {/* 아이디 */}
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoLabel}>아이디</Text>
-            <Text style={styles.infoValue}>{PROFILE.handle}</Text>
+            <Text style={styles.infoValue}>{handle}</Text>
           </View>
 
           {/* 이메일 */}
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoLabel}>이메일</Text>
-            <Text style={styles.infoValue}>{PROFILE.email}</Text>
+            <Text style={styles.infoValue}>{email}</Text>
           </View>
 
           {/* 자기소개: 비어 있으면 회색 이탤릭, 있으면 일반 텍스트 */}
           <View style={[styles.infoRow, styles.infoRowBorder]}>
             <Text style={styles.infoLabel}>자기소개</Text>
-            {PROFILE.bio ? (
-              <Text style={styles.infoValue}>{PROFILE.bio}</Text>
+            {bio ? (
+              <Text style={styles.infoValue}>{bio}</Text>
             ) : (
               <Text style={styles.infoValueEmpty}>아직 자기소개가 없어요</Text>
             )}
@@ -109,7 +119,7 @@ export default function ProfileScreen() {
           {/* 가입일 (마지막 행 — 구분선 없음) */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>가입일</Text>
-            <Text style={styles.infoValue}>{PROFILE.joinedAt}</Text>
+            <Text style={styles.infoValue}>{joinedAt}</Text>
           </View>
         </View>
 

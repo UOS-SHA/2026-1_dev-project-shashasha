@@ -20,7 +20,7 @@ type ScheduleType = 'fixed' | 'variable';
 const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
 
 // 색상 상수
-const COLOR_FIXED = '#3a6ff5';    // 고정 일정 강조색 (파란색)
+const COLOR_FIXED = '#5B7FFF';    // 고정 일정 강조색 (파란색)
 const COLOR_VAR = '#e07830';      // 변동 일정 강조색 (오렌지색)
 const COLOR_BG = '#eaedf7';       // 화면 배경색
 const COLOR_INPUT_BG = '#eceef8'; // 입력 필드 배경색
