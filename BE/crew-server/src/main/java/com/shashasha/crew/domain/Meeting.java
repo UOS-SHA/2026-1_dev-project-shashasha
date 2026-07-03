@@ -31,6 +31,9 @@ public class Meeting {
     @Column(nullable = false)
     private MeetingStatus status;
 
+    // 투표로 확정된 시간대 코드(예: "sat-14"). 아직 확정 전이면 null.
+    private String confirmedSlot;
+
     // JPA 는 빈 생성자가 반드시 필요하다 (규칙)
     protected Meeting() {
     }
@@ -54,8 +57,16 @@ public class Meeting {
         this.status = status;
     }
 
+    // 투표 결과로 시간대를 확정한다: 상태를 CONFIRMED 로 바꾸고, 홈 카드에 보일 라벨도 갱신한다.
+    public void confirm(String slotCode, String nextLabel) {
+        this.confirmedSlot = slotCode;
+        this.status = MeetingStatus.CONFIRMED;
+        this.nextLabel = nextLabel;
+    }
+
     // 조회용 getter 들 (JPA 와 JSON 변환이 이 메서드들을 사용한다)
     public Long getId() { return id; }
+    public String getConfirmedSlot() { return confirmedSlot; }
     public String getName() { return name; }
     public String getEmoji() { return emoji; }
     public int getMemberCount() { return memberCount; }
