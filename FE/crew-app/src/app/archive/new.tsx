@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { toApiErrorMessage } from '@/api/client';
 import { ThemedText } from '@/components/themed-text';
 import { useArchiveStore } from './_layout';
 
@@ -14,6 +15,7 @@ export default function ArchiveNewScreen() {
   const [place, setPlace] = useState('성수 카페');
   const [memo, setMemo] = useState('');
   const [attendees, setAttendees] = useState<string[]>(['김민지', '이서연']);
+  const [saving, setSaving] = useState(false);
 
   const toggleMember = (member: string) => {
     setAttendees((current) =>
@@ -21,7 +23,8 @@ export default function ArchiveNewScreen() {
     );
   };
 
-  const saveRecord = () => {
+  const saveRecord = async () => {
+    if (saving) return;
     if (!/^\d{4}\.\d{2}\.\d{2}$/.test(date.trim())) {
       Alert.alert('날짜 형식을 확인해주세요', '날짜는 2025.04.12 형식으로 입력해주세요.');
       return;
@@ -32,14 +35,21 @@ export default function ArchiveNewScreen() {
       return;
     }
 
-    addRecord({
-      date,
-      place,
-      summary: memo,
-      attendees,
-      absentees: members.filter((member) => !attendees.includes(member)),
-    });
-    router.replace('/archive');
+    setSaving(true);
+    try {
+      await addRecord({
+        date,
+        place,
+        summary: memo,
+        attendees,
+        absentees: members.filter((member) => !attendees.includes(member)),
+      });
+      router.replace('/archive');
+    } catch (err) {
+      Alert.alert('오류', toApiErrorMessage(err, '기록을 저장하지 못했어요.'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { toApiErrorMessage } from '@/api/client';
 import { ThemedText } from '@/components/themed-text';
 import { Mc, useMeeting } from './_layout';
 
@@ -9,10 +10,18 @@ export default function VoteScreen() {
   const { slots, myVote, castVote, confirm } = useMeeting();
   const totalVotes = slots.reduce((sum, slot) => sum + slot.votes, 0);
 
-  const onConfirm = () => {
+  const onVote = (slotId: string) => {
+    castVote(slotId).catch((err) => Alert.alert('오류', toApiErrorMessage(err, '투표에 실패했어요.')));
+  };
+
+  const onConfirm = async () => {
     if (!myVote) return;
-    confirm(myVote);
-    router.push('/meeting/confirmed');
+    try {
+      await confirm(myVote);
+      router.push('/meeting/confirmed');
+    } catch (err) {
+      Alert.alert('오류', toApiErrorMessage(err, '일정 확정에 실패했어요.'));
+    }
   };
 
   return (
@@ -38,7 +47,7 @@ export default function VoteScreen() {
               <Pressable
                 key={slot.id}
                 style={[styles.card, selected && styles.cardSelected]}
-                onPress={() => castVote(slot.id)}>
+                onPress={() => onVote(slot.id)}>
                 <View style={styles.cardHead}>
                   <View style={[styles.radio, selected && styles.radioOn]}>
                     {selected && <View style={styles.radioDot} />}

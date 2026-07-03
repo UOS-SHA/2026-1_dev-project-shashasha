@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -13,7 +13,7 @@ function Avatar({ name, color }: { name: string; color: string }) {
   );
 }
 
-function NotFoundState() {
+function NotFoundState({ loading }: { loading: boolean }) {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
@@ -24,8 +24,14 @@ function NotFoundState() {
         <View style={styles.iconButton} />
       </View>
       <View style={styles.notFound}>
-        <ThemedText style={styles.sectionTitle}>기록을 찾을 수 없어요</ThemedText>
-        <ThemedText style={styles.summary}>목록에서 생성한 기록을 다시 선택해주세요.</ThemedText>
+        {loading ? (
+          <ActivityIndicator color="#5B7FFF" />
+        ) : (
+          <>
+            <ThemedText style={styles.sectionTitle}>기록을 찾을 수 없어요</ThemedText>
+            <ThemedText style={styles.summary}>목록에서 생성한 기록을 다시 선택해주세요.</ThemedText>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -33,11 +39,11 @@ function NotFoundState() {
 
 export default function ArchiveDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { records } = useArchiveStore();
+  const { records, loading } = useArchiveStore();
   const record = records.find((item) => item.id === id);
 
   if (!record) {
-    return <NotFoundState />;
+    return <NotFoundState loading={loading} />;
   }
 
   return <ArchiveDetailContent record={record} />;

@@ -1,18 +1,29 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Mc, TOTAL_MEMBERS, useMeeting } from './_layout';
+import { Mc, useMeeting } from './_layout';
 
 const attendees = ['민준', '서연', '지훈', '예은', '하늘'];
 
 export default function ConfirmedScreen() {
-  const { slots, confirmedId } = useMeeting();
+  const { slots, confirmedId, totalMembers } = useMeeting();
   // 확정된 슬롯이 없으면 표를 가장 많이 받은 슬롯으로 대체
   const confirmed =
     slots.find((slot) => slot.id === confirmedId) ??
     [...slots].sort((a, b) => b.votes - a.votes)[0];
+
+  // 아직 슬롯을 불러오는 중이면(직접 진입 등) 잠깐 로딩만 보여준다.
+  if (!confirmed) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={Mc.green} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -43,7 +54,7 @@ export default function ConfirmedScreen() {
           <View style={styles.metaRow}>
             <ThemedText style={styles.metaLabel}>참석</ThemedText>
             <ThemedText style={styles.metaValue}>
-              {attendees.length}/{TOTAL_MEMBERS}명
+              {attendees.length}/{totalMembers}명
             </ThemedText>
           </View>
 

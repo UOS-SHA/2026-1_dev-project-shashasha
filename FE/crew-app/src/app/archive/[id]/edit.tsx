@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { toApiErrorMessage } from '@/api/client';
 import { ThemedText } from '@/components/themed-text';
 import { useArchiveStore } from '../_layout';
 
@@ -23,7 +24,7 @@ export default function ArchiveEditScreen() {
     );
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!record) return;
     if (!/^\d{4}\.\d{2}\.\d{2}$/.test(date.trim())) {
       Alert.alert('날짜 형식을 확인해주세요', '날짜는 2025.04.12 형식으로 입력해주세요.');
@@ -34,14 +35,18 @@ export default function ArchiveEditScreen() {
       return;
     }
 
-    updateRecord(record.id, {
-      date,
-      place,
-      summary: memo,
-      attendees,
-      absentees: members.filter((member) => !attendees.includes(member)),
-    });
-    router.replace(`/archive/${record.id}`);
+    try {
+      await updateRecord(record.id, {
+        date,
+        place,
+        summary: memo,
+        attendees,
+        absentees: members.filter((member) => !attendees.includes(member)),
+      });
+      router.replace(`/archive/${record.id}`);
+    } catch (err) {
+      Alert.alert('오류', toApiErrorMessage(err, '기록을 수정하지 못했어요.'));
+    }
   };
 
   if (!record) {

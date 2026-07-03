@@ -1,27 +1,14 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Mc, TOTAL_MEMBERS, useMeeting } from './_layout';
-
-const days = ['금', '토', '일'];
-const times = ['10', '12', '14', '16', '18', '20'];
-
-// 멤버 일정을 겹쳐 본 가용 인원 수 (행=시간, 열=요일). 0~6명
-const availability = [
-  [2, 3, 4],
-  [3, 5, 4],
-  [4, 6, 5],
-  [4, 5, 5],
-  [3, 4, 3],
-  [2, 3, 2],
-];
+import { Mc, useMeeting } from './_layout';
 
 // 가용 인원이 많을수록 진한 초록
-function heatColor(count: number) {
+function heatColor(count: number, total: number) {
   if (count === 0) return '#F2F3EE';
-  const ratio = count / TOTAL_MEMBERS;
+  const ratio = total > 0 ? count / total : 0;
   if (ratio >= 0.95) return '#2F5D45';
   if (ratio >= 0.75) return '#4F755F';
   if (ratio >= 0.5) return '#80A18C';
@@ -30,8 +17,9 @@ function heatColor(count: number) {
 }
 
 export default function TimetableScreen() {
-  const { slots } = useMeeting();
-  const golden = [...slots].sort((a, b) => b.available - a.available).slice(0, 3);
+  // 통합 시간표 그리드·골든타임은 모두 서버에서 계산된 값이다.
+  const { days, times, availability, totalMembers, slots, loading } = useMeeting();
+  const golden = slots;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -45,7 +33,9 @@ export default function TimetableScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ThemedText style={styles.title}>모두의 일정을 겹쳐봤어요</ThemedText>
-        <ThemedText style={styles.sub}>색이 진할수록 더 많은 멤버가 가능한 시간이에요. (전체 {TOTAL_MEMBERS}명)</ThemedText>
+        <ThemedText style={styles.sub}>색이 진할수록 더 많은 멤버가 가능한 시간이에요. (전체 {totalMembers}명)</ThemedText>
+
+        {loading ? <ActivityIndicator style={{ marginTop: 24 }} color={Mc.green} /> : null}
 
         {/* 3.2.1 통합 시간표 뷰 */}
         <View style={styles.grid}>
@@ -67,7 +57,7 @@ export default function TimetableScreen() {
                 const count = availability[row][col];
 
                 return (
-                  <View key={`${row}-${col}`} style={[styles.cell, { backgroundColor: heatColor(count) }]}>
+                  <View key={`${row}-${col}`} style={[styles.cell, { backgroundColor: heatColor(count, totalMembers) }]}>
                     <ThemedText style={[styles.cellText, count >= 4 && styles.cellTextOn]}>{count}</ThemedText>
                   </View>
                 );
@@ -100,7 +90,7 @@ export default function TimetableScreen() {
               </View>
               <View style={styles.goldRight}>
                 <ThemedText style={styles.goldCount}>
-                  {slot.available}/{TOTAL_MEMBERS}
+                  {slot.available}/{totalMembers}
                 </ThemedText>
                 <ThemedText style={styles.goldCountLabel}>가능</ThemedText>
               </View>

@@ -1,5 +1,22 @@
-import { Stack } from 'expo-router';
-import { createContext, PropsWithChildren, useContext, useMemo, useState } from 'react';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import {
+  createContext,
+  PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import { toApiErrorMessage } from '@/api/client';
+import {
+  castVote as apiCastVote,
+  confirmSlot as apiConfirmSlot,
+  getTimetable,
+  getVoteState,
+  type GoldenSlot,
+} from '@/api/meetings';
 
 // 일정 매칭 데모용 색상 토큰 (온보딩/홈과 동일한 초록 톤)
 export const Mc = {
@@ -16,58 +33,110 @@ export const Mc = {
   noticeText: '#9C8C4A',
 } as const;
 
-export const TOTAL_MEMBERS = 6;
-
-export type GoldenSlot = {
-  id: string;
-  day: string;
-  time: string;
-  available: number;
-  votes: number;
-};
-
-// 3.2.2 골든타임: 멤버 일정이 가장 많이 겹치는 Top 3 슬롯 (데모 고정값)
-const initialSlots: GoldenSlot[] = [
-  { id: 'sat-14', day: '6월 13일 토', time: '오후 2:00', available: 6, votes: 3 },
-  { id: 'sat-16', day: '6월 13일 토', time: '오후 4:00', available: 5, votes: 2 },
-  { id: 'sun-11', day: '6월 14일 일', time: '오전 11:00', available: 5, votes: 1 },
-];
+export type { GoldenSlot };
 
 type MeetingValue = {
+  meetingId: number;
+  loading: boolean;
+  error: string | null;
+  totalMembers: number;
+  // 통합 시간표 그리드 (행=시간, 열=요일)
+  days: string[];
+  times: string[];
+  availability: number[][];
+  // 골든타임 후보(득표 포함)
   slots: GoldenSlot[];
   myVote: string | null;
-  castVote: (slotId: string) => void;
   confirmedId: string | null;
-  confirm: (slotId: string) => void;
+  castVote: (slotId: string) => Promise<void>;
+  confirm: (slotId: string) => Promise<void>;
 };
 
 const MeetingContext = createContext<MeetingValue | null>(null);
 
 function MeetingProvider({ children }: PropsWithChildren) {
-  const [slots, setSlots] = useState<GoldenSlot[]>(initialSlots);
+  // 홈에서 넘겨준 모임 id (없으면 시드된 첫 모임 1번을 기본값으로)
+  const params = useLocalSearchParams<{ id?: string }>();
+  const meetingId = Number(params.id) || 1;
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [days, setDays] = useState<string[]>([]);
+  const [times, setTimes] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<number[][]>([]);
+  const [slots, setSlots] = useState<GoldenSlot[]>([]);
   const [myVote, setMyVote] = useState<string | null>(null);
   const [confirmedId, setConfirmedId] = useState<string | null>(null);
 
+  // 화면 진입 시 통합 시간표 + 투표 현황을 함께 불러온다.
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    Promise.all([getTimetable(meetingId), getVoteState(meetingId)])
+      .then(([tt, vs]) => {
+        if (!active) return;
+        setDays(tt.days);
+        setTimes(tt.times);
+        setAvailability(tt.availability);
+        setTotalMembers(tt.totalMembers);
+        setSlots(vs.slots);
+        setMyVote(vs.myVote);
+        setConfirmedId(vs.confirmedId);
+      })
+      .catch((err) => {
+        if (active) setError(toApiErrorMessage(err, '모임 정보를 불러오지 못했어요.'));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [meetingId]);
+
+  // 투표 후 서버가 돌려준 최신 상태로 갱신
+  const applyVoteState = useCallback(
+    (vs: { totalMembers: number; slots: GoldenSlot[]; myVote: string | null; confirmedId: string | null }) => {
+      setSlots(vs.slots);
+      setMyVote(vs.myVote);
+      setConfirmedId(vs.confirmedId);
+      setTotalMembers(vs.totalMembers);
+    },
+    [],
+  );
+
+  const castVote = useCallback(
+    async (slotId: string) => {
+      applyVoteState(await apiCastVote(meetingId, slotId));
+    },
+    [meetingId, applyVoteState],
+  );
+
+  const confirm = useCallback(
+    async (slotId: string) => {
+      applyVoteState(await apiConfirmSlot(meetingId, slotId));
+    },
+    [meetingId, applyVoteState],
+  );
+
   const value = useMemo<MeetingValue>(
     () => ({
+      meetingId,
+      loading,
+      error,
+      totalMembers,
+      days,
+      times,
+      availability,
       slots,
       myVote,
-      castVote: (slotId) => {
-        setSlots((current) =>
-          current.map((slot) => {
-            // 이전 투표는 회수하고 새로 고른 슬롯에 +1
-            let votes = slot.votes;
-            if (slot.id === myVote) votes -= 1;
-            if (slot.id === slotId) votes += 1;
-            return { ...slot, votes };
-          })
-        );
-        setMyVote(slotId);
-      },
       confirmedId,
-      confirm: (slotId) => setConfirmedId(slotId),
+      castVote,
+      confirm,
     }),
-    [slots, myVote, confirmedId]
+    [meetingId, loading, error, totalMembers, days, times, availability, slots, myVote, confirmedId, castVote, confirm],
   );
 
   return <MeetingContext.Provider value={value}>{children}</MeetingContext.Provider>;

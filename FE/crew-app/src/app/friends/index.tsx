@@ -1,18 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { toApiErrorMessage } from '@/api/client';
+import {
+  addFriend as apiAddFriend,
+  getFriends,
+  getFriendSchedules,
+  type FriendSchedule,
+} from '@/api/friends';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
-const initialFriends = [
-  { name: '김민지', status: '공강 많음', color: '#5B7FFF', id: '@minji' },
-  { name: '이서연', status: '오후 가능', color: '#F97316', id: '@seoyeon' },
-  { name: '박지훈', status: '수요일 추천', color: '#10B981', id: '@jihun' },
-  { name: '최예은', status: '친구 추가됨', color: '#F43F5E', id: '@yeeun' },
-  { name: '정하늘', status: '시간표 확인', color: '#0EA5E9', id: '@haneul' },
-];
+// 화면에서 다루는 친구 모양. id 는 @핸들(검색/채팅 선택 키), userId 는 시간표 조회용 숫자 id.
+type FriendVM = {
+  userId: number;
+  name: string;
+  status: string;
+  color: string;
+  id: string;
+};
 
 const meetingTimes = [
   { room: '김민지, 이서연 외 2', time: '이번 주 수요일 오후 3시', agree: '3/4명 찬성', status: 'vote' },
@@ -25,30 +33,6 @@ const initialChatRooms = [
   { id: 'room-2', name: '박지훈, 최예은', message: '장소는 학교 앞 카페 어때?', time: '1시간 전', unread: 0 },
   { id: 'room-3', name: '정하늘, 김민지 외 1', message: '그럼 목요일 저녁 후보로 잡아둘게', time: '어제', unread: 1 },
 ];
-
-const friendSchedules: Record<string, { day: string; title: string; time: string; type: string }[]> = {
-  '@minji': [
-    { day: '월', title: '전공 수업', time: '10:00 - 12:00', type: '고정' },
-    { day: '수', title: '동아리 회의', time: '15:00 - 17:00', type: '변동' },
-    { day: '금', title: '알바', time: '18:00 - 21:00', type: '고정' },
-  ],
-  '@seoyeon': [
-    { day: '화', title: '교양 수업', time: '13:00 - 15:00', type: '고정' },
-    { day: '목', title: '스터디', time: '16:00 - 18:00', type: '변동' },
-  ],
-  '@jihun': [
-    { day: '월', title: '랩 미팅', time: '14:00 - 16:00', type: '고정' },
-    { day: '금', title: '운동', time: '09:00 - 10:30', type: '변동' },
-  ],
-  '@yeeun': [
-    { day: '수', title: '수업', time: '09:00 - 12:00', type: '고정' },
-    { day: '토', title: '프로젝트', time: '13:00 - 16:00', type: '변동' },
-  ],
-  '@haneul': [
-    { day: '화', title: '알바', time: '17:00 - 21:00', type: '고정' },
-    { day: '목', title: '팀플', time: '11:00 - 13:00', type: '변동' },
-  ],
-};
 
 const scheduleDays = ['월', '화', '수', '목', '금', '토', '일'];
 const scheduleHours = Array.from({ length: 13 }, (_, index) => index + 9);
@@ -63,17 +47,61 @@ function Avatar({ name, color }: { name: string; color: string }) {
 
 export default function FriendsHomeScreen() {
   const safeAreaInsets = useSafeAreaInsets();
-  const [friends, setFriends] = useState(initialFriends);
+  const [friends, setFriends] = useState<FriendVM[]>([]);
   const [chatRooms, setChatRooms] = useState(initialChatRooms);
   const [menuOpen, setMenuOpen] = useState(false);
   const [friendFormOpen, setFriendFormOpen] = useState(false);
   const [friendId, setFriendId] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFriend, setSelectedFriend] = useState<(typeof initialFriends)[number] | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<FriendVM | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<FriendSchedule[]>([]);
   const [chatFormOpen, setChatFormOpen] = useState(false);
   const [chatRoomName, setChatRoomName] = useState('');
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+
+  // 백엔드 친구 응답 → 화면용 FriendVM 으로 변환
+  const toFriendVM = (f: { id: number; name: string; handle: string; status: string | null; color: string }): FriendVM => ({
+    userId: f.id,
+    name: f.name,
+    status: f.status ?? '친구',
+    color: f.color,
+    id: f.handle,
+  });
+
+  // 화면 진입 시 친구 목록을 불러온다.
+  useEffect(() => {
+    let active = true;
+    getFriends()
+      .then((data) => {
+        if (active) setFriends(data.map(toFriendVM));
+      })
+      .catch(() => {
+        // 친구 목록 로드 실패는 조용히 넘긴다.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // 친구를 선택하면 그 친구의 시간표를 서버에서 불러온다.
+  useEffect(() => {
+    if (!selectedFriend) {
+      setSelectedSchedule([]);
+      return;
+    }
+    let active = true;
+    getFriendSchedules(selectedFriend.userId)
+      .then((data) => {
+        if (active) setSelectedSchedule(data);
+      })
+      .catch(() => {
+        if (active) setSelectedSchedule([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedFriend]);
 
   const openFriendForm = () => {
     setMenuOpen(false);
@@ -85,7 +113,7 @@ export default function FriendsHomeScreen() {
     setChatFormOpen(true);
   };
 
-  const addFriendById = () => {
+  const addFriendById = async () => {
     const trimmedId = friendId.trim();
 
     if (!trimmedId) {
@@ -101,17 +129,14 @@ export default function FriendsHomeScreen() {
       return;
     }
 
-    setFriends((current) => [
-      {
-        name: normalizedId.replace('@', ''),
-        status: '새 친구',
-        color: '#7C3AED',
-        id: normalizedId,
-      },
-      ...current,
-    ]);
-    setFriendId('');
-    setFriendFormOpen(false);
+    try {
+      const created = await apiAddFriend(normalizedId);
+      setFriends((current) => [toFriendVM(created), ...current]);
+      setFriendId('');
+      setFriendFormOpen(false);
+    } catch (err) {
+      Alert.alert('친구를 추가할 수 없어요', toApiErrorMessage(err, '해당 아이디의 사용자를 찾을 수 없어요.'));
+    }
   };
 
   const searchKeyword = searchQuery.trim().toLowerCase();
@@ -123,7 +148,6 @@ export default function FriendsHomeScreen() {
         );
       })
     : friends;
-  const selectedSchedule = selectedFriend ? friendSchedules[selectedFriend.id] ?? [] : [];
   const selectedChatFriends = friends.filter((friend) => selectedFriendIds.includes(friend.id));
   const previewChatName =
     chatRoomName.trim() || selectedChatFriends.map((friend) => friend.name).join(', ');

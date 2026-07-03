@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,           // 오류 안내용
   Animated,        // 애니메이션 API
   Modal,           // 팝업/바텀시트 오버레이용
   PanResponder,    // 드래그 제스처
@@ -14,10 +16,19 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { toApiErrorMessage } from '@/api/client';
+import {
+  createSchedule,
+  deleteSchedule,
+  getSchedules,
+  updateSchedule,
+} from '@/api/schedules';
+
 // ===== 타입 정의 =====
 
-// 일정 하나를 표현하는 타입
+// 일정 하나를 표현하는 타입 (백엔드 ScheduleResponse 와 동일 모양)
 type Schedule = {
+  id: number;                // 서버가 매긴 고유 id (수정/삭제에 사용)
   t: string;                 // 제목
   tp: 'fixed' | 'variable'; // 고정(매주 반복) | 변동(특정 날짜)
   days: number[];            // 요일 배열: 0=월, 1=화, ..., 6=일
@@ -46,12 +57,6 @@ const COLOR_VAR_BLOCK = '#ffd8a8';   // 변동 블록 배경
 const COLOR_INPUT_BG = '#eceef8';    // 입력 필드 배경
 const COLOR_BORDER = '#cdd0e0';      // 기본 테두리
 
-// ===== 초기 샘플 데이터 (2개) =====
-// useState로 관리하므로 추가/수정/삭제가 실시간으로 반영됨
-const INITIAL_EVENTS: Schedule[] = [
-  { t: '알바', tp: 'fixed',    days: [0], sh: 9,  sm: 0, eh: 12, em: 0 }, // 월요일 고정
-  { t: '팀플', tp: 'variable', days: [4], sh: 15, sm: 0, eh: 17, em: 0 }, // 금요일 변동
-];
 
 // ===== 헬퍼 함수 =====
 
@@ -97,9 +102,29 @@ function getWeekLabel(dates: Date[]): string {
 export default function PersonalScheduleScreen() {
 
   // ─── 캘린더 상태 ───
-  // const 대신 useState로 관리 → 추가/수정/삭제 시 화면 자동 갱신
-  const [events, setEvents] = useState<Schedule[]>(INITIAL_EVENTS);
+  // 서버(GET /schedules)에서 불러온 일정. 추가/수정/삭제 시 화면 자동 갱신
+  const [events, setEvents] = useState<Schedule[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
   const [weekOffset, setWeekOffset] = useState<number>(0);
+
+  // 화면 진입 시 내 일정을 서버에서 불러온다.
+  useEffect(() => {
+    let active = true;
+    getSchedules()
+      .then((data) => {
+        if (active) setEvents(data);
+      })
+      .catch((err) => {
+        if (active) Alert.alert('오류', toApiErrorMessage(err, '일정을 불러오지 못했어요.'));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // ─── 팝업 상태 ───
   // null이면 팝업 숨김
@@ -245,8 +270,9 @@ export default function PersonalScheduleScreen() {
     });
   };
 
-  // ─── 저장 핸들러 ───
-  const handleSave = () => {
+  // ─── 저장 핸들러 (서버 반영) ───
+  const handleSave = async () => {
+    if (saving) return;
     const sh = formStartTime.getHours();
     const sm = formStartTime.getMinutes();
     const eh = formEndTime.getHours();
@@ -255,30 +281,44 @@ export default function PersonalScheduleScreen() {
     // 요일 미선택 시 월요일(0) 기본값
     const days = formDays.length > 0 ? formDays : [0];
 
-    if (editingIdx !== null) {
-      // 수정 모드: 단일 요일 1개만 저장
-      const day = formDays.length > 0 ? formDays[0] : 0;
-      setEvents(prev => {
-        const copy = [...prev];
-        copy[editingIdx] = { t: title, tp: formType, days: [day], sh, sm, eh, em };
-        return copy;
-      });
-    } else {
-      // 추가 모드: 선택된 요일마다 독립적인 이벤트 생성
-      setEvents(prev => [
-        ...prev,
-        ...days.map(day => ({ t: title, tp: formType, days: [day], sh, sm, eh, em })),
-      ]);
+    setSaving(true);
+    try {
+      if (editingIdx !== null) {
+        // 수정 모드: 단일 요일 1개만 저장. 서버에 PUT 후 그 자리(id 기준)를 갱신.
+        const day = formDays.length > 0 ? formDays[0] : 0;
+        const target = events[editingIdx];
+        const updated = await updateSchedule(target.id, {
+          t: title, tp: formType, days: [day], sh, sm, eh, em,
+        });
+        setEvents(prev => prev.map(ev => (ev.id === target.id ? updated : ev)));
+      } else {
+        // 추가 모드: 선택된 요일들을 한 일정으로 생성(요일 여러 개 지원). 서버가 id 를 매겨 반환.
+        const created = await createSchedule({
+          t: title, tp: formType, days, sh, sm, eh, em,
+        });
+        setEvents(prev => [...prev, created]);
+      }
+      closeSheet();
+    } catch (err) {
+      Alert.alert('오류', toApiErrorMessage(err, '일정을 저장하지 못했어요.'));
+    } finally {
+      setSaving(false);
     }
-    closeSheet();
   };
 
-  // ─── 삭제 핸들러 ───
-  const handleDelete = () => {
-    if (editingIdx !== null) {
-      // filter: 해당 인덱스를 제외한 새 배열 반환
-      setEvents(prev => prev.filter((_, i) => i !== editingIdx));
+  // ─── 삭제 핸들러 (서버 반영) ───
+  const handleDelete = async () => {
+    if (editingIdx === null || saving) return;
+    const target = events[editingIdx];
+    setSaving(true);
+    try {
+      await deleteSchedule(target.id);
+      setEvents(prev => prev.filter(ev => ev.id !== target.id));
       closeSheet();
+    } catch (err) {
+      Alert.alert('오류', toApiErrorMessage(err, '일정을 삭제하지 못했어요.'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -490,6 +530,13 @@ export default function PersonalScheduleScreen() {
             ))}
           </View>
         </ScrollView>
+
+        {/* 최초 로딩 중 오버레이 */}
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator color={COLOR_FIXED} />
+          </View>
+        )}
 
         {/* FAB: 바텀시트 열기 (더 이상 페이지 이동 없음) */}
         <TouchableOpacity
@@ -807,6 +854,13 @@ const styles = StyleSheet.create({
   legendText: { fontSize: 10, fontWeight: '600', color: '#444' },
   // ─── 그리드 ───
   gridWrapper: { flex: 1 },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(234,237,247,0.6)',
+  },
   gridScroll: { flex: 1, backgroundColor: COLOR_BG },
   gridContainer: { flexDirection: 'row' },
   timeCol: {
