@@ -1,7 +1,10 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { toApiErrorMessage } from '@/api/client';
+import { getMeetings, type Meeting } from '@/api/meetings';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 
@@ -17,15 +20,6 @@ const C = {
   line: '#E6E7E0',
 };
 
-type Meeting = {
-  id: string;
-  name: string;
-  emoji: string;
-  members: number;
-  nextLabel: string;
-  status: 'confirmed' | 'voting';
-};
-
 // 홈을 허브로: 각 기능 폴더 입구로 연결 (팀원 폴더는 건드리지 않고 진입만 연결)
 const shortcuts = [
   { id: 'archive', emoji: '📒', label: '아카이브', href: '/archive' as const },
@@ -34,14 +28,32 @@ const shortcuts = [
   { id: 'settings', emoji: '⚙️', label: '설정', href: '/settings' as const },
 ];
 
-const meetings: Meeting[] = [
-  { id: 'book', name: '수요 독서 모임', emoji: '📚', members: 6, nextLabel: '6월 13일 토 · 오후 2:00', status: 'confirmed' },
-  { id: 'run', name: '한강 러닝 크루', emoji: '🏃', members: 9, nextLabel: '투표 진행 중 · 3일 남음', status: 'voting' },
-  { id: 'study', name: '사이드 프로젝트', emoji: '💻', members: 4, nextLabel: '6월 18일 목 · 오후 7:30', status: 'confirmed' },
-];
-
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getMeetings()
+      .then((data) => {
+        if (active) setMeetings(data);
+      })
+      .catch((err) => {
+        if (active) setError(toApiErrorMessage(err, '모임을 불러오지 못했어요.'));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // 이번 주 확정 일정 요약: 확정 상태인 첫 모임을 보여준다.
+  const confirmedMeeting = meetings.find((meeting) => meeting.status === 'confirmed');
 
   return (
     <View style={styles.screen}>
@@ -66,15 +78,28 @@ export default function HomeScreen() {
           <View style={styles.summaryCard}>
             <View style={styles.summaryHead}>
               <ThemedText style={styles.summaryLabel}>이번 주 확정 일정</ThemedText>
-              <View style={styles.dDay}>
-                <ThemedText style={styles.dDayText}>D-2</ThemedText>
-              </View>
+              {confirmedMeeting ? (
+                <View style={styles.dDay}>
+                  <ThemedText style={styles.dDayText}>확정</ThemedText>
+                </View>
+              ) : null}
             </View>
-            <ThemedText style={styles.summaryTitle}>수요 독서 모임</ThemedText>
-            <ThemedText style={styles.summaryWhen}>6월 13일 토요일 · 오후 2:00</ThemedText>
+            <ThemedText style={styles.summaryTitle}>
+              {confirmedMeeting ? confirmedMeeting.name : '확정된 일정이 없어요'}
+            </ThemedText>
+            <ThemedText style={styles.summaryWhen}>
+              {confirmedMeeting ? confirmedMeeting.nextLabel : '모임에서 시간을 맞춰 일정을 정해보세요.'}
+            </ThemedText>
             <View style={styles.summaryFoot}>
               <ThemedText style={styles.summaryPlace}>📍 성수 모임 공간</ThemedText>
-              <Pressable onPress={() => router.push('/meeting')}>
+              <Pressable
+                onPress={() =>
+                  router.push(
+                    confirmedMeeting
+                      ? { pathname: '/meeting', params: { id: String(confirmedMeeting.id) } }
+                      : '/meeting',
+                  )
+                }>
                 <ThemedText style={styles.summaryLink}>자세히 ›</ThemedText>
               </Pressable>
             </View>
@@ -99,12 +124,25 @@ export default function HomeScreen() {
             <ThemedText style={styles.sectionMeta}>{meetings.length}개</ThemedText>
           </View>
 
+          {loading ? (
+            <View style={styles.stateBox}>
+              <ActivityIndicator color={C.green} />
+            </View>
+          ) : error ? (
+            <View style={styles.stateBox}>
+              <ThemedText style={styles.stateText}>{error}</ThemedText>
+            </View>
+          ) : meetings.length === 0 ? (
+            <View style={styles.stateBox}>
+              <ThemedText style={styles.stateText}>아직 가입한 모임이 없어요.</ThemedText>
+            </View>
+          ) : (
           <View style={styles.list}>
             {meetings.map((meeting) => (
               <Pressable
                 key={meeting.id}
                 style={({ pressed }) => [styles.meetingCard, pressed && styles.pressed]}
-                onPress={() => router.push('/meeting')}>
+                onPress={() => router.push({ pathname: '/meeting', params: { id: String(meeting.id) } })}>
                 <View style={styles.meetingIcon}>
                   <ThemedText style={styles.meetingEmoji}>{meeting.emoji}</ThemedText>
                 </View>
@@ -131,6 +169,7 @@ export default function HomeScreen() {
               </Pressable>
             ))}
           </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -189,6 +228,8 @@ const styles = StyleSheet.create({
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   sectionTitle: { color: C.ink, fontSize: 18, fontWeight: '900' },
   sectionMeta: { color: C.sub, fontSize: 13, fontWeight: '700' },
+  stateBox: { paddingVertical: 28, alignItems: 'center', justifyContent: 'center' },
+  stateText: { color: C.sub, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   list: { gap: 10 },
   meetingCard: {
     backgroundColor: C.card,
