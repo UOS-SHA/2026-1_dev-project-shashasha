@@ -44,6 +44,7 @@ function ArchiveCard({ item }: { item: ArchiveRecord }) {
       </View>
 
       <View style={styles.cardText}>
+        {item.meetingName ? <ThemedText style={styles.cardMeeting}>{item.meetingName}</ThemedText> : null}
         <ThemedText style={styles.cardTitle}>
           {item.date} {item.day} · {item.place}
         </ThemedText>
@@ -285,6 +286,7 @@ const styles = StyleSheet.create({
   },
   roundNumber: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
   cardText: { flex: 1, minWidth: 0, gap: 4 },
+  cardMeeting: { color: '#5B7FFF', fontSize: 12, fontWeight: '900', marginBottom: 2 },
   cardTitle: { color: '#1E1E2E', fontSize: 14, fontWeight: '800' },
   cardSub: { color: '#64748B', fontSize: 12, fontWeight: '700' },
   cardSummary: { color: '#7B8798', fontSize: 12, lineHeight: 17 },

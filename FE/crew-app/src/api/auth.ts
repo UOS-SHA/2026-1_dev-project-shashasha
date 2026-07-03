@@ -66,8 +66,18 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   return data;
 }
 
+// 백엔드 UserProfileResponse 와 1:1 대응 (마이페이지 상세).
+export type UserProfile = {
+  id: number;
+  nickname: string;
+  handle: string;
+  email: string;
+  bio: string | null;
+  joinedAt: string; // "2026-05-09"
+};
+
 /** GET /users/me → 현재 로그인된 사용자 프로필 조회(토큰 필요). */
-export async function getMe(): Promise<AuthUser> {
-  const { data } = await apiClient.get<AuthUser>('/users/me');
+export async function getMyProfile(): Promise<UserProfile> {
+  const { data } = await apiClient.get<UserProfile>('/users/me');
   return data;
 }

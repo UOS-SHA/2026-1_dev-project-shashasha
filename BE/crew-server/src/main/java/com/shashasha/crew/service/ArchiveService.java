@@ -1,10 +1,12 @@
 package com.shashasha.crew.service;
 
 import com.shashasha.crew.domain.ArchiveRecord;
+import com.shashasha.crew.domain.Meeting;
 import com.shashasha.crew.dto.ArchiveCreateRequest;
 import com.shashasha.crew.dto.ArchiveResponse;
 import com.shashasha.crew.exception.ApiException;
 import com.shashasha.crew.repository.ArchiveRecordRepository;
+import com.shashasha.crew.repository.MeetingRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,33 +36,40 @@ public class ArchiveService {
     private static final String DEFAULT_PLACE = "성수 카페";
 
     private final ArchiveRecordRepository archiveRepository;
+    private final MeetingRepository meetingRepository;
 
-    public ArchiveService(ArchiveRecordRepository archiveRepository) {
+    public ArchiveService(ArchiveRecordRepository archiveRepository, MeetingRepository meetingRepository) {
         this.archiveRepository = archiveRepository;
+        this.meetingRepository = meetingRepository;
     }
 
     /** 내 기록 전체 (최신 회차부터) */
     @Transactional(readOnly = true)
     public List<ArchiveResponse> findMine(Long userId) {
         return archiveRepository.findByUserIdOrderByRoundDesc(userId).stream()
-                .map(ArchiveResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
     /** 기록 단건 조회 (내 것이 아니면 404) */
     @Transactional(readOnly = true)
     public ArchiveResponse findOne(Long userId, Long id) {
-        return ArchiveResponse.from(getMineOrThrow(userId, id));
+        return toResponse(getMineOrThrow(userId, id));
     }
 
-    /** 기록 생성 — 회차/요일/제목/색상은 서버가 자동으로 매긴다. */
+    /** 기록 생성 — 회차/요일/제목/색상은 서버가 자동으로 매긴다. 회차는 "그 모임" 기준. */
     @Transactional
     public ArchiveResponse create(Long userId, ArchiveCreateRequest req) {
-        int round = (int) archiveRepository.countByUserId(userId) + 1;
+        Meeting meeting = meetingRepository.findById(req.meetingId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEETING_NOT_FOUND",
+                        "모임을 찾을 수 없습니다"));
+
+        int round = (int) archiveRepository.countByUserIdAndMeetingId(userId, meeting.getId()) + 1;
         String[] style = PALETTE[(round - 1) % PALETTE.length];
 
         ArchiveRecord record = new ArchiveRecord(
                 userId,
+                meeting.getId(),
                 round,
                 req.date(),
                 dayLabelOf(req.date()),
@@ -73,10 +82,10 @@ public class ArchiveService {
                 style[0],
                 style[1]
         );
-        return ArchiveResponse.from(archiveRepository.save(record));
+        return toResponse(archiveRepository.save(record));
     }
 
-    /** 기록 수정 (내 것이 아니면 404) */
+    /** 기록 수정 (내 것이 아니면 404). 모임 소속은 바꾸지 않는다. */
     @Transactional
     public ArchiveResponse update(Long userId, Long id, ArchiveCreateRequest req) {
         ArchiveRecord record = getMineOrThrow(userId, id);
@@ -88,13 +97,21 @@ public class ArchiveService {
                 nullSafe(req.attendees()),
                 nullSafe(req.absentees())
         );
-        return ArchiveResponse.from(record);
+        return toResponse(record);
     }
 
     /** 기록 삭제 (내 것이 아니면 404) */
     @Transactional
     public void delete(Long userId, Long id) {
         archiveRepository.delete(getMineOrThrow(userId, id));
+    }
+
+    /** 기록 → 응답 DTO. 모임 이름을 함께 채운다(모임이 지워졌으면 빈 문자열). */
+    private ArchiveResponse toResponse(ArchiveRecord record) {
+        String meetingName = meetingRepository.findById(record.getMeetingId())
+                .map(Meeting::getName)
+                .orElse("");
+        return ArchiveResponse.from(record, meetingName);
     }
 
     private ArchiveRecord getMineOrThrow(Long userId, Long id) {

@@ -17,7 +17,8 @@ public interface ArchiveRecordRepository extends JpaRepository<ArchiveRecord, Lo
 
     List<ArchiveRecord> findByUserIdOrderByRoundDesc(Long userId);
 
-    long countByUserId(Long userId);
+    /** 한 모임에서 이 사용자가 남긴 기록 수 (다음 회차 번호 계산용) */
+    long countByUserIdAndMeetingId(Long userId, Long meetingId);
 
     Optional<ArchiveRecord> findByIdAndUserId(Long id, Long userId);
 }

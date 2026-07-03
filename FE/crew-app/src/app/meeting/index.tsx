@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { toApiErrorMessage } from '@/api/client';
+import { deleteMeeting } from '@/api/meetings';
 import { ThemedText } from '@/components/themed-text';
 import { Mc, useMeeting } from './_layout';
 
@@ -11,8 +13,26 @@ const notices = [
 ];
 
 export default function MeetingDashboardScreen() {
-  const { slots, confirmedId } = useMeeting();
+  const { meetingId, name, slots, confirmedId } = useMeeting();
   const confirmed = slots.find((slot) => slot.id === confirmedId);
+
+  const onDelete = () => {
+    Alert.alert('모임 삭제', `'${name || '이 모임'}'을(를) 삭제할까요? 되돌릴 수 없어요.`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteMeeting(meetingId);
+            router.replace('/home');
+          } catch (err) {
+            Alert.alert('오류', toApiErrorMessage(err, '모임을 삭제하지 못했어요.'));
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -20,8 +40,10 @@ export default function MeetingDashboardScreen() {
         <Pressable style={styles.headerButton} onPress={() => router.back()}>
           <ThemedText style={styles.navIcon}>‹</ThemedText>
         </Pressable>
-        <ThemedText style={styles.headerTitle}>수요 독서 모임</ThemedText>
-        <View style={styles.headerButton} />
+        <ThemedText style={styles.headerTitle} numberOfLines={1}>{name || '모임'}</ThemedText>
+        <Pressable style={styles.headerButton} onPress={onDelete}>
+          <ThemedText style={styles.deleteText}>삭제</ThemedText>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -94,7 +116,8 @@ const styles = StyleSheet.create({
   },
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   navIcon: { color: Mc.ink, fontSize: 28, fontWeight: '800', lineHeight: 30 },
-  headerTitle: { color: Mc.ink, fontSize: 17, fontWeight: '900' },
+  headerTitle: { color: Mc.ink, fontSize: 17, fontWeight: '900', flex: 1, textAlign: 'center' },
+  deleteText: { color: '#E0554E', fontSize: 14, fontWeight: '800' },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, gap: 16 },
   ddayCard: { backgroundColor: Mc.green, borderRadius: 20, padding: 20, gap: 6 },
   ddayTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

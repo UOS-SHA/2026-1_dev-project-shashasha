@@ -4,14 +4,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 
-// 온보딩 데모용 색상 토큰 (스크린샷의 초록/크림 톤)
+// 온보딩 데모용 색상 토큰 (앱 공통 파란 톤). green 키는 호환을 위해 유지하되 값은 파랑.
 export const Onb = {
   bg: '#F3F4EE',
   card: '#FFFFFF',
-  green: '#2F5D45',
-  greenDark: '#274E3A',
-  chip: '#DCE8DF',
-  chipText: '#2F5D45',
+  green: '#5B7FFF',
+  greenDark: '#3F5BD6',
+  chip: '#E3EAFF',
+  chipText: '#3A4FC4',
   ink: '#1F2A24',
   sub: '#8A8F8A',
   line: '#E6E7E0',

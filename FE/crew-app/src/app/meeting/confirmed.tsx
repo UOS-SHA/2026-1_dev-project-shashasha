@@ -5,8 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { Mc, useMeeting } from './_layout';
 
-const attendees = ['민준', '서연', '지훈', '예은', '하늘'];
-
 export default function ConfirmedScreen() {
   const { slots, confirmedId, totalMembers } = useMeeting();
   // 확정된 슬롯이 없으면 표를 가장 많이 받은 슬롯으로 대체
@@ -54,16 +52,8 @@ export default function ConfirmedScreen() {
           <View style={styles.metaRow}>
             <ThemedText style={styles.metaLabel}>참석</ThemedText>
             <ThemedText style={styles.metaValue}>
-              {attendees.length}/{totalMembers}명
+              {confirmed.votes}/{totalMembers}명
             </ThemedText>
-          </View>
-
-          <View style={styles.avatarRow}>
-            {attendees.map((name, index) => (
-              <View key={name} style={[styles.avatar, index > 0 && styles.avatarOverlap]}>
-                <ThemedText style={styles.avatarText}>{name[0]}</ThemedText>
-              </View>
-            ))}
           </View>
         </View>
 

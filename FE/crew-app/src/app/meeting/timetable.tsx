@@ -9,11 +9,11 @@ import { Mc, useMeeting } from './_layout';
 function heatColor(count: number, total: number) {
   if (count === 0) return '#F2F3EE';
   const ratio = total > 0 ? count / total : 0;
-  if (ratio >= 0.95) return '#2F5D45';
-  if (ratio >= 0.75) return '#4F755F';
-  if (ratio >= 0.5) return '#80A18C';
-  if (ratio >= 0.25) return '#B4C8BB';
-  return '#DCE8DF';
+  if (ratio >= 0.95) return '#3F5BD6';
+  if (ratio >= 0.75) return '#5B7FFF';
+  if (ratio >= 0.5) return '#8AA0FF';
+  if (ratio >= 0.25) return '#C2CEFF';
+  return '#E3EAFF';
 }
 
 export default function TimetableScreen() {
@@ -68,9 +68,9 @@ export default function TimetableScreen() {
 
         <View style={styles.legend}>
           <ThemedText style={styles.legendText}>적음</ThemedText>
-          <View style={[styles.legendDot, { backgroundColor: '#DCE8DF' }]} />
-          <View style={[styles.legendDot, { backgroundColor: '#80A18C' }]} />
-          <View style={[styles.legendDot, { backgroundColor: '#2F5D45' }]} />
+          <View style={[styles.legendDot, { backgroundColor: '#E3EAFF' }]} />
+          <View style={[styles.legendDot, { backgroundColor: '#8AA0FF' }]} />
+          <View style={[styles.legendDot, { backgroundColor: '#3F5BD6' }]} />
           <ThemedText style={styles.legendText}>많음</ThemedText>
         </View>
 

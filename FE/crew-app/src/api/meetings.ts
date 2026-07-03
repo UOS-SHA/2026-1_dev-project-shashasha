@@ -39,6 +39,11 @@ export async function createMeeting(payload: MeetingPayload): Promise<Meeting> {
   return data;
 }
 
+/** DELETE /meetings/{id} → 모임 삭제 */
+export async function deleteMeeting(id: number): Promise<void> {
+  await apiClient.delete(`/meetings/${id}`);
+}
+
 // ───────────────────────── 일정 매칭 ─────────────────────────
 
 // 백엔드 GoldenSlotResponse 와 1:1 대응.
@@ -88,5 +93,11 @@ export async function castVote(meetingId: number, slotId: string): Promise<VoteS
 /** POST /meetings/{id}/confirm → 시간대 확정 */
 export async function confirmSlot(meetingId: number, slotId: string): Promise<VoteState> {
   const { data } = await apiClient.post<VoteState>(`/meetings/${meetingId}/confirm`, { slotId });
+  return data;
+}
+
+/** GET /meetings/{id}/members → 이 모임 멤버 이름 목록 (활동 기록 참석자 선택용) */
+export async function getMeetingMembers(meetingId: number): Promise<string[]> {
+  const { data } = await apiClient.get<string[]>(`/meetings/${meetingId}/members`);
   return data;
 }

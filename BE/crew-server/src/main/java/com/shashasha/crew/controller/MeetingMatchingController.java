@@ -9,6 +9,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 일정 매칭 API 입구 (/meetings/{meetingId}/**).
  * JwtAuthFilter 로 보호되며(투표는 "누가" 했는지 알아야 하므로), 필터가 담아둔 userId 를 사용한다.
@@ -33,6 +35,12 @@ public class MeetingMatchingController {
     @GetMapping("/vote")
     public VoteStateResponse getVoteState(HttpServletRequest request, @PathVariable Long meetingId) {
         return matchingService.getVoteState(meetingId, userId(request));
+    }
+
+    /** GET /meetings/{id}/members → 이 모임 멤버 이름 목록 (활동 기록 참석자 선택용) */
+    @GetMapping("/members")
+    public List<String> getMembers(HttpServletRequest request, @PathVariable Long meetingId) {
+        return matchingService.getMemberNames(meetingId, userId(request));
     }
 
     /** POST /meetings/{id}/vote → 투표(또는 재투표) */

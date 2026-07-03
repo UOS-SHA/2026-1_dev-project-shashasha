@@ -17,13 +17,13 @@ public record MeetingResponse(
         String nextLabel,
         String status
 ) {
-    /** Meeting 엔티티 → 응답 DTO 로 변환 */
-    public static MeetingResponse from(Meeting m) {
+    /** Meeting 엔티티 → 응답 DTO. members 는 실제 멤버 수를 넣어준다(시간표의 전체 인원과 일치시키기 위함). */
+    public static MeetingResponse of(Meeting m, int members) {
         return new MeetingResponse(
                 m.getId(),
                 m.getName(),
                 m.getEmoji(),
-                m.getMemberCount(),
+                members,
                 m.getNextLabel(),
                 m.getStatus().name().toLowerCase() // CONFIRMED → "confirmed"
         );

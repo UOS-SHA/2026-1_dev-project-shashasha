@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 
 // ===== 색상 상수 =====
 const COLOR_BG       = '#eaedf7';
-const COLOR_ACCENT   = '#3a6ff5'; // 파란 강조색 (아바타, 버튼, 배지)
+const COLOR_ACCENT   = '#5B7FFF'; // 파란 강조색 (아바타, 버튼, 배지)
 const COLOR_TEXT     = '#1a2340';
 const COLOR_GRAY     = '#8e95a9';
 const COLOR_BORDER   = '#dde0ee';

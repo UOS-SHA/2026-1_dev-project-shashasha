@@ -13,6 +13,7 @@ import { toApiErrorMessage } from '@/api/client';
 import {
   castVote as apiCastVote,
   confirmSlot as apiConfirmSlot,
+  getMeeting,
   getTimetable,
   getVoteState,
   type GoldenSlot,
@@ -22,10 +23,10 @@ import {
 export const Mc = {
   bg: '#F3F4EE',
   card: '#FFFFFF',
-  green: '#2F5D45',
-  greenSoft: '#5C7E6C',
-  chip: '#DCE8DF',
-  chipText: '#2F5D45',
+  green: '#5B7FFF',
+  greenSoft: '#8AA0FF',
+  chip: '#E3EAFF',
+  chipText: '#3A4FC4',
   ink: '#1F2A24',
   sub: '#8A8F8A',
   line: '#E6E7E0',
@@ -37,6 +38,7 @@ export type { GoldenSlot };
 
 type MeetingValue = {
   meetingId: number;
+  name: string;
   loading: boolean;
   error: string | null;
   totalMembers: number;
@@ -61,6 +63,7 @@ function MeetingProvider({ children }: PropsWithChildren) {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState('');
   const [totalMembers, setTotalMembers] = useState(0);
   const [days, setDays] = useState<string[]>([]);
   const [times, setTimes] = useState<string[]>([]);
@@ -74,9 +77,10 @@ function MeetingProvider({ children }: PropsWithChildren) {
     let active = true;
     setLoading(true);
     setError(null);
-    Promise.all([getTimetable(meetingId), getVoteState(meetingId)])
-      .then(([tt, vs]) => {
+    Promise.all([getMeeting(meetingId), getTimetable(meetingId), getVoteState(meetingId)])
+      .then(([meeting, tt, vs]) => {
         if (!active) return;
+        setName(meeting.name);
         setDays(tt.days);
         setTimes(tt.times);
         setAvailability(tt.availability);
@@ -124,6 +128,7 @@ function MeetingProvider({ children }: PropsWithChildren) {
   const value = useMemo<MeetingValue>(
     () => ({
       meetingId,
+      name,
       loading,
       error,
       totalMembers,
@@ -136,7 +141,7 @@ function MeetingProvider({ children }: PropsWithChildren) {
       castVote,
       confirm,
     }),
-    [meetingId, loading, error, totalMembers, days, times, availability, slots, myVote, confirmedId, castVote, confirm],
+    [meetingId, name, loading, error, totalMembers, days, times, availability, slots, myVote, confirmedId, castVote, confirm],
   );
 
   return <MeetingContext.Provider value={value}>{children}</MeetingContext.Provider>;
