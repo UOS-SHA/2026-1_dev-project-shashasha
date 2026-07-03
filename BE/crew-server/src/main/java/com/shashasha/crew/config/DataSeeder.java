@@ -1,25 +1,40 @@
 package com.shashasha.crew.config;
 
-import com.shashasha.crew.domain.Meeting;
-import com.shashasha.crew.domain.MeetingStatus;
+import com.shashasha.crew.domain.*;
+import com.shashasha.crew.repository.MeetingMemberRepository;
 import com.shashasha.crew.repository.MeetingRepository;
+import com.shashasha.crew.repository.ScheduleRepository;
+import com.shashasha.crew.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 /**
  * 서버 시작 시 한 번 실행되는 초기 데이터 심기(seeding).
- * DB 가 비어 있을 때만, 홈 화면(home/index.tsx)의 하드코딩 모임 3개를 넣어준다.
- * 덕분에 서버를 처음 켜도 GET /meetings 가 바로 데이터를 돌려준다.
+ * DB 가 비어 있을 때만 실행되며, 데모가 바로 돌아가도록 다음을 넣어준다:
+ *   1) 홈 화면의 모임 3개
+ *   2) 샘플 사용자 5명 (+ 각자의 개인 일정) — 친구 추가(@minji 등)와 일정 매칭 데모용
+ *   3) 위 5명을 첫 모임(수요 독서 모임)의 멤버로 등록 → 통합 시간표의 "가능 인원"이 실제로 계산됨
  */
 @Component
 public class DataSeeder implements CommandLineRunner {
 
     private final MeetingRepository meetingRepository;
+    private final UserRepository userRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final MeetingMemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public DataSeeder(MeetingRepository meetingRepository) {
+    public DataSeeder(MeetingRepository meetingRepository, UserRepository userRepository,
+                      ScheduleRepository scheduleRepository, MeetingMemberRepository memberRepository,
+                      PasswordEncoder passwordEncoder) {
         this.meetingRepository = meetingRepository;
+        this.userRepository = userRepository;
+        this.scheduleRepository = scheduleRepository;
+        this.memberRepository = memberRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -27,10 +42,59 @@ public class DataSeeder implements CommandLineRunner {
         if (meetingRepository.count() > 0) {
             return; // 이미 데이터가 있으면 아무것도 안 함
         }
-        meetingRepository.saveAll(List.of(
+
+        // 1) 모임 3개 (홈 화면의 하드코딩 데이터와 동일)
+        List<Meeting> meetings = meetingRepository.saveAll(List.of(
                 new Meeting("수요 독서 모임", "📚", 6, "6월 13일 토 · 오후 2:00", MeetingStatus.CONFIRMED),
                 new Meeting("한강 러닝 크루", "🏃", 9, "투표 진행 중 · 3일 남음", MeetingStatus.VOTING),
                 new Meeting("사이드 프로젝트", "💻", 4, "6월 18일 목 · 오후 7:30", MeetingStatus.CONFIRMED)
         ));
+        Long firstMeetingId = meetings.get(0).getId();
+
+        // 2) 샘플 사용자 5명 + 개인 일정. 요일: 0=월 ... 4=금, 5=토, 6=일
+        //    (FE 친구 목록의 이름/한줄소개와 맞췄고, handle 로 친구 추가를 바로 테스트할 수 있다.)
+        Long minji  = seedUser("minji@example.com", "김민지", "공강 많음");
+        seedSchedule(minji, "전공 수업", ScheduleType.FIXED, List.of(4), 10, 0, 12, 0);  // 금 10-12
+        seedSchedule(minji, "동아리",   ScheduleType.VARIABLE, List.of(5), 14, 0, 16, 0); // 토 14-16
+
+        Long seoyeon = seedUser("seoyeon@example.com", "이서연", "오후 가능");
+        seedSchedule(seoyeon, "교양 수업", ScheduleType.FIXED, List.of(5), 10, 0, 12, 0);  // 토 10-12
+        seedSchedule(seoyeon, "알바",     ScheduleType.FIXED, List.of(6), 18, 0, 20, 0);  // 일 18-20
+
+        Long jihun = seedUser("jihun@example.com", "박지훈", "수요일 추천");
+        seedSchedule(jihun, "랩 미팅", ScheduleType.FIXED, List.of(4), 18, 0, 21, 0);  // 금 18-21
+        seedSchedule(jihun, "스터디",  ScheduleType.VARIABLE, List.of(5), 12, 0, 14, 0); // 토 12-14
+
+        Long yeeun = seedUser("yeeun@example.com", "최예은", "친구 추가됨");
+        seedSchedule(yeeun, "운동",   ScheduleType.VARIABLE, List.of(6), 14, 0, 16, 0); // 일 14-16
+        seedSchedule(yeeun, "프로젝트", ScheduleType.FIXED, List.of(4), 14, 0, 16, 0);   // 금 14-16
+
+        Long haneul = seedUser("haneul@example.com", "정하늘", "시간표 확인");
+        seedSchedule(haneul, "수업",   ScheduleType.FIXED, List.of(5), 16, 0, 18, 0);  // 토 16-18
+        seedSchedule(haneul, "봉사활동", ScheduleType.VARIABLE, List.of(6), 10, 0, 12, 0); // 일 10-12
+
+        // 3) 5명을 첫 모임의 멤버로 등록 (로그인한 사용자는 접속 시 자동으로 6번째 멤버가 됨)
+        for (Long userId : List.of(minji, seoyeon, jihun, yeeun, haneul)) {
+            memberRepository.save(new MeetingMember(firstMeetingId, userId));
+        }
+    }
+
+    /** 샘플 사용자 한 명을 만들고 id 를 돌려준다. (비밀번호는 모두 "test1234") */
+    private Long seedUser(String email, String nickname, String bio) {
+        String handle = "@" + email.split("@")[0];
+        User user = new User(
+                email,
+                passwordEncoder.encode("test1234"),
+                nickname,
+                bio,
+                handle,
+                true, true, true, true, false
+        );
+        return userRepository.save(user).getId();
+    }
+
+    private void seedSchedule(Long userId, String title, ScheduleType type, List<Integer> days,
+                              int sh, int sm, int eh, int em) {
+        scheduleRepository.save(new Schedule(userId, title, type, days, sh, sm, eh, em));
     }
 }

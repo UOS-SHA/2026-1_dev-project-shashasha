@@ -12,8 +12,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * 인증 관련 공통 빈(Bean) 설정.
  *  1) PasswordEncoder : 비밀번호를 BCrypt 로 암호화/대조하는 도구.
  *  2) JwtAuthFilter 등록 : 로그인이 필요한 "내 데이터" 경로에 토큰 검사 문지기를 세운다.
- *     - 보호: /users, /schedules, /archives, /friends (사용자별 개인 데이터)
- *     - 공개: 로그인/회원가입(/auth/**) 과 모임 목록(/meetings) 은 토큰 없이도 접근 가능
+ *     - 보호: /users, /schedules, /archives, /friends, /meetings
+ *             (모임 투표/확정은 "누가" 했는지 알아야 해서 /meetings 도 보호 대상으로 둔다.
+ *              앱은 로그인 이후에만 모임을 호출하므로 문제 없다.)
+ *     - 공개: 로그인/회원가입(/auth/**) 만 토큰 없이 접근 가능
  */
 @Configuration
 public class SecurityConfig {
@@ -34,7 +36,8 @@ public class SecurityConfig {
                 "/users", "/users/*",
                 "/schedules", "/schedules/*",
                 "/archives", "/archives/*",
-                "/friends", "/friends/*"
+                "/friends", "/friends/*",
+                "/meetings", "/meetings/*"
         );
         registration.setOrder(1);
         return registration;
