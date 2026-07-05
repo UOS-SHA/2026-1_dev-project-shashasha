@@ -3,8 +3,6 @@
 > 친구들과의 모임 약속을 **통합 시간표 · 투표 · 확정**으로 손쉽게 잡는 서비스.
 > 각자 개인 일정을 등록하면, 겹치지 않는 시간을 찾아 투표하고 최종 확정합니다.
 
-2026-1 팀 프로젝트 (`shashasha`)
-
 ---
 
 ## 주요 기능
@@ -36,7 +34,7 @@
 2026-1_dev-project-shashasha/
 ├── FE/crew-app/        # Expo 모바일 앱 (프론트엔드)
 │   └── src/
-│       ├── app/        # 화면 (Expo Router, 파일=경로)
+│       ├── app/        # 화면 (Expo Router)
 │       ├── api/        # API 호출 함수
 │       ├── components/ # 공용 컴포넌트
 │       ├── hooks/      # 커스텀 훅
@@ -51,7 +49,7 @@
 │   │   └── dto/        # 요청/응답 객체
 │   └── docker-compose.yml  # 로컬 PostgreSQL
 └── docs/
-    └── API_SPEC.md     # API 명세서 (FE·BE 합의용 계약서)
+    └── API_SPEC.md     # API 명세서
 ```
 
 ---
