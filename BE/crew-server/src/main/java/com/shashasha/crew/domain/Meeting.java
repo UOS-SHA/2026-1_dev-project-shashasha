@@ -34,6 +34,9 @@ public class Meeting {
     // 투표로 확정된 시간대 코드(예: "sat-14"). 아직 확정 전이면 null.
     private String confirmedSlot;
 
+    // 모임을 만든 사람(방장)의 userId. 방장만 강제 확정 등 권한을 가진다.
+    private Long creatorId;
+
     // JPA 는 빈 생성자가 반드시 필요하다 (규칙)
     protected Meeting() {
     }
@@ -64,8 +67,14 @@ public class Meeting {
         this.nextLabel = nextLabel;
     }
 
+    // 방장(만든 사람)을 지정한다. 생성 직후 한 번만 설정한다.
+    public void assignCreator(Long creatorId) {
+        this.creatorId = creatorId;
+    }
+
     // 조회용 getter 들 (JPA 와 JSON 변환이 이 메서드들을 사용한다)
     public Long getId() { return id; }
+    public Long getCreatorId() { return creatorId; }
     public String getConfirmedSlot() { return confirmedSlot; }
     public String getName() { return name; }
     public String getEmoji() { return emoji; }

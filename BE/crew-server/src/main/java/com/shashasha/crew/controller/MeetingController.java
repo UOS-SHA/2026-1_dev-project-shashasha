@@ -27,16 +27,18 @@ public class MeetingController {
         this.meetingService = meetingService;
     }
 
-    /** GET /meetings  → 모임 전체 목록 (홈 화면의 meetings 배열) */
+    /** GET /meetings  → 내가 가입한 모임 목록 (홈 화면의 meetings 배열) */
     @GetMapping
-    public List<MeetingResponse> getMeetings() {
-        return meetingService.findAll();
+    public List<MeetingResponse> getMeetings(HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute(JwtAuthFilter.USER_ID_ATTRIBUTE);
+        return meetingService.findMyMeetings(userId);
     }
 
-    /** GET /meetings/{id} → 모임 단건 조회 */
+    /** GET /meetings/{id} → 모임 단건 조회 (내 모임만) */
     @GetMapping("/{id}")
-    public MeetingResponse getMeeting(@PathVariable Long id) {
-        return meetingService.findById(id);
+    public MeetingResponse getMeeting(HttpServletRequest httpRequest, @PathVariable Long id) {
+        Long userId = (Long) httpRequest.getAttribute(JwtAuthFilter.USER_ID_ATTRIBUTE);
+        return meetingService.findById(id, userId);
     }
 
     /** POST /meetings → 모임 생성. 성공하면 201 Created 와 만든 모임을 응답. (만든 사람이 첫 멤버) */

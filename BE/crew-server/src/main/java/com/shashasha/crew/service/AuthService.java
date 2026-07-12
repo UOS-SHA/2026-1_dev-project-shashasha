@@ -23,12 +23,14 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final StarterMeetingSeeder starterMeetingSeeder;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       JwtTokenProvider tokenProvider) {
+                       JwtTokenProvider tokenProvider, StarterMeetingSeeder starterMeetingSeeder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.starterMeetingSeeder = starterMeetingSeeder;
     }
 
     /** 회원가입 후 곧바로 로그인된 것처럼 토큰을 발급해 돌려준다. */
@@ -66,6 +68,9 @@ public class AuthService {
                 Boolean.TRUE.equals(req.agreedMarketing())
         );
         User saved = userRepository.save(user);
+
+        // 새 사용자에게 "나만의 시작 모임"을 만들어 준다 (투표~확정 흐름을 바로 체험할 수 있도록).
+        starterMeetingSeeder.seedFor(saved.getId());
 
         String token = tokenProvider.createToken(saved.getId());
         return AuthResponse.of(token, saved);
