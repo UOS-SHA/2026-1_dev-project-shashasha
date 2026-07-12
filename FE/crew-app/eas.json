@@ -14,13 +14,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://crew-server-2g76.onrender.com"
+        "EXPO_PUBLIC_API_URL": "http://141.164.45.201:8080"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://crew-server-2g76.onrender.com"
+        "EXPO_PUBLIC_API_URL": "http://141.164.45.201:8080"
       }
     }
   },

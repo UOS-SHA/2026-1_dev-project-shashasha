@@ -13,7 +13,8 @@
     "android": {
       "package": "com.shashasha.crewapp",
       "icon": "./assets/images/icon.png",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
