@@ -22,7 +22,7 @@ export const Onb = {
 } as const;
 
 // 온보딩 단계 진행 비율 (login은 랜딩이라 진행바 없음)
-export const OnboardingSteps = ['profile', 'terms', 'permissions', 'schedule'] as const;
+export const OnboardingSteps = ['profile', 'terms', 'permissions'] as const;
 export type OnboardingStep = (typeof OnboardingSteps)[number];
 
 export function stepProgress(step: OnboardingStep) {
@@ -43,8 +43,6 @@ type OnboardingValue = {
   setNotification: (value: boolean) => void;
   personalize: boolean;
   setPersonalize: (value: boolean) => void;
-  selectedCells: Set<string>;
-  toggleCell: (key: string) => void;
   agreed: boolean;
   setAgreed: (value: boolean) => void;
   agreedMarketing: boolean;
@@ -60,10 +58,6 @@ function OnboardingProvider({ children }: PropsWithChildren) {
   const [intro, setIntro] = useState('');
   const [notification, setNotification] = useState(true);
   const [personalize, setPersonalize] = useState(true);
-  // 데모 기본값: 스크린샷처럼 일부 칸이 미리 선택된 상태
-  const [selectedCells, setSelectedCells] = useState<Set<string>>(
-    () => new Set(['0-0', '0-4', '1-0', '2-2', '3-4'])
-  );
   const [agreed, setAgreed] = useState(false);
   const [agreedMarketing, setAgreedMarketing] = useState(false);
 
@@ -81,23 +75,12 @@ function OnboardingProvider({ children }: PropsWithChildren) {
       setNotification,
       personalize,
       setPersonalize,
-      selectedCells,
-      toggleCell: (key) =>
-        setSelectedCells((current) => {
-          const next = new Set(current);
-          if (next.has(key)) {
-            next.delete(key);
-          } else {
-            next.add(key);
-          }
-          return next;
-        }),
       agreed,
       setAgreed,
       agreedMarketing,
       setAgreedMarketing,
     }),
-    [email, password, nickname, intro, notification, personalize, selectedCells, agreed, agreedMarketing]
+    [email, password, nickname, intro, notification, personalize, agreed, agreedMarketing]
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

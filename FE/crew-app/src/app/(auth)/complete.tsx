@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -14,7 +15,6 @@ export default function CompleteScreen() {
     password,
     nickname,
     intro,
-    selectedCells,
     notification,
     personalize,
     agreed,
@@ -26,7 +26,6 @@ export default function CompleteScreen() {
 
   const items = [
     { label: '프로필', value: nickname.trim() ? '설정 완료' : '건너뜀' },
-    { label: '기본 시간표', value: `${selectedCells.size}칸 설정 완료` },
     { label: '권한', value: notification || personalize ? '선택 완료' : '모두 끔' },
   ];
 
@@ -71,7 +70,11 @@ export default function CompleteScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <View style={styles.logo}>
-            <ThemedText style={styles.logoMark}>♣</ThemedText>
+            <Image
+              source={require('../../../assets/images/icon.png')}
+              style={styles.logoImage}
+              contentFit="contain"
+            />
             <View style={styles.checkBubble}>
               <ThemedText style={styles.checkBubbleText}>✓</ThemedText>
             </View>
@@ -125,11 +128,10 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 26,
-    backgroundColor: Onb.green,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoMark: { color: '#FFFFFF', fontSize: 48, fontWeight: '900', lineHeight: 52 },
+  logoImage: { width: 96, height: 96, borderRadius: 26 },
   checkBubble: {
     position: 'absolute',
     right: -4,

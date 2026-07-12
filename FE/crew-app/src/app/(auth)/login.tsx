@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,9 +22,11 @@ export default function LoginScreen() {
         ]}>
         <View style={styles.container}>
           <View style={styles.brandRow}>
-            <View style={styles.logo}>
-              <ThemedText style={styles.logoMark}>♣</ThemedText>
-            </View>
+            <Image
+              source={require('../../../assets/images/icon.png')}
+              style={styles.logo}
+              contentFit="contain"
+            />
             <ThemedText style={styles.brandName}>SHASHASHA</ThemedText>
           </View>
 
@@ -62,21 +65,10 @@ export default function LoginScreen() {
 
           <View style={styles.actions}>
             <Pressable
-              style={({ pressed }) => [styles.kakaoButton, pressed && styles.pressed]}
-              onPress={() => router.push('/profile')}>
-              <View style={styles.kakaoDot}>
-                <ThemedText style={styles.kakaoDotText}>···</ThemedText>
-              </View>
-              <ThemedText style={styles.kakaoText}>카카오로 시작하기</ThemedText>
-            </Pressable>
-
-            <Pressable style={styles.emailButton} onPress={() => router.push('/email')}>
+              style={({ pressed }) => [styles.emailButton, pressed && styles.pressed]}
+              onPress={() => router.push('/email')}>
               <ThemedText style={styles.emailText}>이메일로 시작하기</ThemedText>
             </Pressable>
-
-            <ThemedText style={styles.demoNote}>
-              로그인은 데모 화면이며 실제 카카오 계정과 연결되지 않아요.
-            </ThemedText>
           </View>
         </View>
       </ScrollView>
@@ -93,11 +85,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: Onb.green,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  logoMark: { color: '#FFFFFF', fontSize: 22, fontWeight: '900', lineHeight: 24 },
   brandName: { color: Onb.ink, fontSize: 22, fontWeight: '900' },
   hero: { gap: 14 },
   tag: {
@@ -150,27 +138,13 @@ const styles = StyleSheet.create({
   timeLabel: { color: Onb.sub, fontSize: 15, fontWeight: '700' },
   timeValue: { color: Onb.green, fontSize: 17, fontWeight: '900' },
   actions: { gap: 12 },
-  kakaoButton: {
+  emailButton: {
     minHeight: 56,
     borderRadius: 14,
-    backgroundColor: Onb.kakao,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  kakaoDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#1F2A24',
+    backgroundColor: Onb.green,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kakaoDotText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', lineHeight: 12 },
-  kakaoText: { color: '#1F2A24', fontSize: 16, fontWeight: '900' },
-  emailButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  emailText: { color: Onb.green, fontSize: 14, fontWeight: '800' },
-  demoNote: { color: Onb.sub, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  emailText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
   pressed: { opacity: 0.8 },
 });

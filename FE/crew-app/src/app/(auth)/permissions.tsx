@@ -62,7 +62,7 @@ export default function PermissionsScreen() {
         <StepFooter
           primaryLabel="설정하고 계속하기"
           note="토글은 화면 확인용이며 실제 기기 권한을 요청하지 않습니다."
-          onPrimary={() => router.push('/schedule')}
+          onPrimary={() => router.push('/complete')}
         />
       </View>
     </SafeAreaView>

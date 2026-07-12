@@ -2,6 +2,7 @@ package com.shashasha.crew.service;
 
 import com.shashasha.crew.domain.User;
 import com.shashasha.crew.dto.UserProfileResponse;
+import com.shashasha.crew.dto.UserUpdateRequest;
 import com.shashasha.crew.exception.ApiException;
 import com.shashasha.crew.repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,16 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND",
                         "사용자를 찾을 수 없습니다"));
+        return UserProfileResponse.from(user);
+    }
+
+    /** 토큰에서 꺼낸 userId 의 프로필(닉네임/아이디/한줄소개)을 수정하고, 갱신된 프로필을 돌려준다. */
+    @Transactional
+    public UserProfileResponse updateMyProfile(Long userId, UserUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND",
+                        "사용자를 찾을 수 없습니다"));
+        user.updateProfile(request.nickname(), request.handle(), request.bio());
         return UserProfileResponse.from(user);
     }
 }
