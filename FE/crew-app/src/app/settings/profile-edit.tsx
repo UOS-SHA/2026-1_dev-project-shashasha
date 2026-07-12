@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,         // 저장/불러오기 실패 시 오류 알림
   Animated,      // 토스트 메시지 페이드 인/아웃 애니메이션에 사용
   Modal,         // 이모지 선택 바텀시트에 사용
   ScrollView,
@@ -11,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+
+import { getMyProfile, toAuthErrorMessage, updateMyProfile } from '@/api/auth';
 
 // ===== 색상 상수 =====
 const COLOR_BG       = '#eaedf7';
@@ -31,12 +34,14 @@ export default function ProfileEditScreen() {
   // ─── 폼 상태 ───
   // 선택된 이모지 (기본값: 😊)
   const [emoji, setEmoji]   = useState<string>('😊');
-  // 이름 입력값
-  const [name, setName]     = useState<string>('홍길동');
-  // 아이디 입력값
-  const [handle, setHandle] = useState<string>('@username');
-  // 자기소개 입력값 (초기에는 비어 있음)
+  // 이름(닉네임) 입력값 — 진입 시 서버에서 받아와 채운다
+  const [name, setName]     = useState<string>('');
+  // 아이디(handle) 입력값
+  const [handle, setHandle] = useState<string>('');
+  // 자기소개 입력값
   const [bio, setBio]       = useState<string>('');
+  // 저장 진행 중 여부 (중복 제출 방지)
+  const [saving, setSaving] = useState<boolean>(false);
 
   // ─── 이모지 피커 바텀시트 표시 여부 ───
   const [emojiPickerVisible, setEmojiPickerVisible] = useState<boolean>(false);
@@ -49,6 +54,25 @@ export default function ProfileEditScreen() {
   // ─── 토스트 표시 여부 (View 렌더링 제어) ───
   // toastAnim 값과 별도로 View 자체를 마운트/언마운트해서 불필요한 레이어 최소화
   const [toastShowing, setToastShowing] = useState<boolean>(false);
+
+  // ─── 화면 진입 시 실제 내 프로필을 불러와 입력 필드를 채운다 ───
+  // (기존에는 '홍길동' 목데이터가 하드코딩되어 있었음 → 실제 로그인 사용자 정보로 대체)
+  useEffect(() => {
+    let active = true;
+    getMyProfile()
+      .then((profile) => {
+        if (!active) return;
+        setName(profile.nickname ?? '');
+        setHandle(profile.handle ?? '');
+        setBio(profile.bio ?? '');
+      })
+      .catch((err) => {
+        Alert.alert('불러오기 실패', toAuthErrorMessage(err, '프로필을 불러오지 못했어요.'));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // ─── 이모지 선택 처리 ───
   const handleSelectEmoji = (selectedEmoji: string) => {
@@ -77,9 +101,23 @@ export default function ProfileEditScreen() {
   };
 
   // ─── 저장 처리 ───
-  const handleSave = () => {
-    console.log('[프로필 수정] 저장 데이터:', { emoji, name, handle, bio });
-    showToast(); // 토스트 표시 → 애니메이션 종료 후 자동으로 router.back() 호출
+  // 실제 백엔드(PUT /users/me)에 닉네임/아이디/한줄소개를 저장한다.
+  // (이모지는 아직 백엔드에 저장할 필드가 없어 화면 표시용으로만 유지)
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await updateMyProfile({
+        nickname: name.trim(),
+        handle: handle.trim(),
+        bio: bio.trim() ? bio.trim() : null,
+      });
+      showToast(); // 성공 시에만 토스트 → 애니메이션 종료 후 자동으로 router.back() 호출
+    } catch (err) {
+      Alert.alert('저장 실패', toAuthErrorMessage(err, '프로필 저장에 실패했어요. 잠시 후 다시 시도해 주세요.'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -187,11 +225,12 @@ export default function ProfileEditScreen() {
 
         {/* ===== 저장하기 버튼 ===== */}
         <TouchableOpacity
-          style={styles.saveBtn}
+          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
           onPress={handleSave}
           activeOpacity={0.85}
+          disabled={saving}
         >
-          <Text style={styles.saveBtnText}>저장하기</Text>
+          <Text style={styles.saveBtnText}>{saving ? '저장 중...' : '저장하기'}</Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -402,6 +441,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: {
     fontSize: 15,
     fontWeight: '700',

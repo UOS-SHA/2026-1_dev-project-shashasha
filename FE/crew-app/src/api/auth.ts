@@ -81,3 +81,17 @@ export async function getMyProfile(): Promise<UserProfile> {
   const { data } = await apiClient.get<UserProfile>('/users/me');
   return data;
 }
+
+// PUT /users/me 요청 body (백엔드 UserUpdateRequest 와 대응).
+// 닉네임/아이디/한줄소개만 수정 가능하다.
+export type UpdateProfilePayload = {
+  nickname: string;
+  handle: string;
+  bio?: string | null;
+};
+
+/** PUT /users/me → 내 프로필(닉네임/아이디/한줄소개)을 수정하고 갱신된 프로필을 반환(토큰 필요). */
+export async function updateMyProfile(payload: UpdateProfilePayload): Promise<UserProfile> {
+  const { data } = await apiClient.put<UserProfile>('/users/me', payload);
+  return data;
+}

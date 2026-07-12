@@ -6,7 +6,9 @@ const baseURL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export const apiClient = axios.create({
   baseURL,
-  timeout: 10000,
+  // Render 무료 티어는 유휴 시 서버가 잠들어 첫 요청에 콜드스타트(~30-60초)가 걸린다.
+  // 10초로는 첫 요청이 타임아웃돼 "연결 실패"로 보이므로 60초로 늘린다.
+  timeout: 60000,
   headers: { "Content-Type": "application/json" },
 });
 

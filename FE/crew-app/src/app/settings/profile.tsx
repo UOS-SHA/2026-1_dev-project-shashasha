@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { getMyProfile, type UserProfile } from '@/api/auth';
 
@@ -24,13 +24,16 @@ export default function ProfileScreen() {
 
   // GET /users/me 로 내 프로필을 불러온다.
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  useEffect(() => {
-    getMyProfile()
-      .then(setProfile)
-      .catch(() => {
-        // 조회 실패 시 빈 값 유지
-      });
-  }, []);
+  // 화면에 진입/복귀할 때마다 다시 불러온다. (프로필 수정 후 돌아왔을 때 최신값 반영)
+  useFocusEffect(
+    useCallback(() => {
+      getMyProfile()
+        .then(setProfile)
+        .catch(() => {
+          // 조회 실패 시 빈 값 유지
+        });
+    }, [])
+  );
 
   const name = profile?.nickname ?? '';
   const handle = profile?.handle ?? '';
