@@ -9,11 +9,13 @@ import java.util.List;
  *   - slots        : 투표 후보(골든) 시간대 목록 (각자 votes 포함)
  *   - myVote       : 내가 투표한 시간대 코드 (아직 안 했으면 null)
  *   - confirmedId  : 확정된 시간대 코드 (아직 확정 전이면 null)
+ *   - isOwner      : 내가 이 모임의 방장인지 (방장만 강제 확정 버튼 노출)
  */
 public record VoteStateResponse(
         int totalMembers,
         List<GoldenSlotResponse> slots,
         String myVote,
-        String confirmedId
+        String confirmedId,
+        boolean isOwner
 ) {
 }

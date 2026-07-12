@@ -7,15 +7,25 @@ import { ThemedText } from '@/components/themed-text';
 import { Mc, useMeeting } from './_layout';
 
 export default function VoteScreen() {
-  const { slots, myVote, castVote, confirm, totalMembers, confirmedId } = useMeeting();
+  const { slots, myVote, castVote, confirm, totalMembers, confirmedId, isOwner } = useMeeting();
   const totalVotes = slots.reduce((sum, slot) => sum + slot.votes, 0);
   const locked = confirmedId != null; // 이미 확정된 모임이면 투표 마감
 
   // 확정은 "내가 고른 것"이 아니라 "가장 표를 많이 받은 시간대"로 정한다.
   const winner = slots.length > 0 ? [...slots].sort((a, b) => b.votes - a.votes)[0] : null;
+  // 방장은 표가 하나라도 있으면 투표를 조기 마감(강제 확정)할 수 있다.
+  const canForceConfirm = isOwner && !locked && totalVotes > 0;
 
-  const onVote = (slotId: string) => {
-    castVote(slotId).catch((err) => Alert.alert('오류', toApiErrorMessage(err, '투표에 실패했어요.')));
+  const onVote = async (slotId: string) => {
+    try {
+      const state = await castVote(slotId);
+      // 내 표로 전원 투표가 완료돼 자동 확정됐다면 확정 화면으로 이동
+      if (state.confirmedId != null) {
+        router.push('/meeting/confirmed');
+      }
+    } catch (err) {
+      Alert.alert('오류', toApiErrorMessage(err, '투표에 실패했어요.'));
+    }
   };
 
   const onConfirm = async () => {
@@ -81,23 +91,36 @@ export default function VoteScreen() {
         </View>
 
         <ThemedText style={styles.note}>
-          확정하면 가장 많은 표를 받은 시간대로 일정이 정해져요.
+          멤버 모두가 투표를 마치면 최다 득표 시간대로 자동 확정돼요.
         </ThemedText>
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.cta,
-            (!winner || locked) && styles.ctaDisabled,
-            pressed && !!winner && !locked && styles.pressed,
-          ]}
-          disabled={!winner || locked}
-          onPress={onConfirm}>
-          <ThemedText style={styles.ctaText}>
-            {locked ? '확정된 일정' : '최다 득표로 일정 확정하기'}
-          </ThemedText>
-        </Pressable>
+        {locked ? (
+          <View style={[styles.cta, styles.ctaDisabled]}>
+            <ThemedText style={styles.ctaText}>확정된 일정</ThemedText>
+          </View>
+        ) : isOwner ? (
+          // 방장 전용: 끝까지 투표 안 하는 멤버가 있을 때 조기 확정하는 예비 수단
+          <Pressable
+            style={({ pressed }) => [
+              styles.cta,
+              !canForceConfirm && styles.ctaDisabled,
+              pressed && canForceConfirm && styles.pressed,
+            ]}
+            disabled={!canForceConfirm}
+            onPress={onConfirm}>
+            <ThemedText style={styles.ctaText}>
+              {canForceConfirm ? '지금 최다 득표로 확정하기 (방장)' : '투표를 기다리는 중'}
+            </ThemedText>
+          </Pressable>
+        ) : (
+          <View style={styles.autoNotice}>
+            <ThemedText style={styles.autoNoticeText}>
+              모두 투표를 마치면 자동으로 확정돼요.
+            </ThemedText>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -160,4 +183,13 @@ const styles = StyleSheet.create({
   ctaDisabled: { backgroundColor: '#A9BDB1' },
   ctaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
   pressed: { opacity: 0.85 },
+  autoNotice: {
+    minHeight: 56,
+    borderRadius: 16,
+    backgroundColor: Mc.notice,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  autoNoticeText: { color: Mc.noticeText, fontSize: 14, fontWeight: '800', textAlign: 'center' },
 });

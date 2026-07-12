@@ -30,21 +30,30 @@ public class MeetingService {
         this.memberRepository = memberRepository;
     }
 
-    /** 모임 전체 조회 → 응답 DTO 리스트로 변환 (members 는 실제 멤버 수) */
+    /**
+     * 내가 가입한 모임만 조회 → 응답 DTO 리스트로 변환 (members 는 실제 멤버 수).
+     * 예전에는 전체 모임을 돌려줘서 모든 사용자가 같은 목록을 공유하는 버그가 있었다.
+     */
     @Transactional(readOnly = true)
-    public List<MeetingResponse> findAll() {
-        return meetingRepository.findAll().stream()
+    public List<MeetingResponse> findMyMeetings(Long userId) {
+        List<Long> myMeetingIds = memberRepository.findByUserId(userId).stream()
+                .map(MeetingMember::getMeetingId)
+                .toList();
+        return meetingRepository.findAllById(myMeetingIds).stream()
+                .sorted(java.util.Comparator.comparing(Meeting::getId))
                 .map(this::toResponse)
                 .toList();
     }
 
-    /** 모임 단건 조회 (GET /meetings/{id}). 없으면 404. */
+    /** 모임 단건 조회 (GET /meetings/{id}). 없으면 404, 내 모임이 아니면 403. */
     @Transactional(readOnly = true)
-    public MeetingResponse findById(Long id) {
-        return toResponse(getOrThrow(id));
+    public MeetingResponse findById(Long id, Long userId) {
+        Meeting meeting = getOrThrow(id);
+        requireMember(id, userId);
+        return toResponse(meeting);
     }
 
-    /** 모임 생성 후, 생성된 결과를 응답 DTO 로 반환. 만든 사람은 곧바로 멤버가 된다. */
+    /** 모임 생성 후, 생성된 결과를 응답 DTO 로 반환. 만든 사람은 곧바로 멤버 겸 방장이 된다. */
     @Transactional
     public MeetingResponse create(MeetingCreateRequest req, Long creatorUserId) {
         Meeting meeting = new Meeting(
@@ -54,9 +63,18 @@ public class MeetingService {
                 req.nextLabel(),
                 parseStatus(req.status())
         );
+        meeting.assignCreator(creatorUserId); // 만든 사람이 방장
         Meeting saved = meetingRepository.save(meeting); // INSERT 실행
         memberRepository.save(new MeetingMember(saved.getId(), creatorUserId)); // 생성자를 멤버로
         return toResponse(saved);
+    }
+
+    /** 요청자가 이 모임의 멤버가 아니면 403. (자동 가입 대신 명시적 차단) */
+    private void requireMember(Long meetingId, Long userId) {
+        if (!memberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "NOT_A_MEMBER",
+                    "이 모임의 멤버가 아니에요");
+        }
     }
 
     /** 모임 수정 (PUT /meetings/{id}). 없으면 404. */

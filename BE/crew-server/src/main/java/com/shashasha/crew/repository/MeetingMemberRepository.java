@@ -16,6 +16,9 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
 
     List<MeetingMember> findByMeetingId(Long meetingId);
 
+    /** 이 사용자가 속한 모든 모임 멤버십 (내 모임 목록 조회용) */
+    List<MeetingMember> findByUserId(Long userId);
+
     boolean existsByMeetingIdAndUserId(Long meetingId, Long userId);
 
     long countByMeetingId(Long meetingId);

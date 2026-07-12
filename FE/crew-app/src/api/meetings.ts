@@ -70,6 +70,7 @@ export type VoteState = {
   slots: GoldenSlot[];
   myVote: string | null;
   confirmedId: string | null;
+  isOwner: boolean; // 내가 이 모임 방장인지 (방장만 강제 확정 가능)
 };
 
 /** GET /meetings/{id}/timetable → 통합 시간표(가능 인원 그리드 + 골든타임) */

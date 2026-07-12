@@ -17,6 +17,7 @@ import {
   getTimetable,
   getVoteState,
   type GoldenSlot,
+  type VoteState,
 } from '@/api/meetings';
 
 // 일정 매칭 데모용 색상 토큰 (온보딩/홈과 동일한 초록 톤)
@@ -50,8 +51,10 @@ type MeetingValue = {
   slots: GoldenSlot[];
   myVote: string | null;
   confirmedId: string | null;
-  castVote: (slotId: string) => Promise<void>;
-  confirm: (slotId: string) => Promise<void>;
+  isOwner: boolean;
+  // 투표/확정 후 최신 상태를 돌려준다 (자동 확정 시 화면 이동 판단용)
+  castVote: (slotId: string) => Promise<VoteState>;
+  confirm: (slotId: string) => Promise<VoteState>;
 };
 
 const MeetingContext = createContext<MeetingValue | null>(null);
@@ -71,6 +74,7 @@ function MeetingProvider({ children }: PropsWithChildren) {
   const [slots, setSlots] = useState<GoldenSlot[]>([]);
   const [myVote, setMyVote] = useState<string | null>(null);
   const [confirmedId, setConfirmedId] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   // 화면 진입 시 통합 시간표 + 투표 현황을 함께 불러온다.
   useEffect(() => {
@@ -88,6 +92,7 @@ function MeetingProvider({ children }: PropsWithChildren) {
         setSlots(vs.slots);
         setMyVote(vs.myVote);
         setConfirmedId(vs.confirmedId);
+        setIsOwner(vs.isOwner);
       })
       .catch((err) => {
         if (active) setError(toApiErrorMessage(err, '모임 정보를 불러오지 못했어요.'));
@@ -102,25 +107,36 @@ function MeetingProvider({ children }: PropsWithChildren) {
 
   // 투표 후 서버가 돌려준 최신 상태로 갱신
   const applyVoteState = useCallback(
-    (vs: { totalMembers: number; slots: GoldenSlot[]; myVote: string | null; confirmedId: string | null }) => {
+    (vs: {
+      totalMembers: number;
+      slots: GoldenSlot[];
+      myVote: string | null;
+      confirmedId: string | null;
+      isOwner: boolean;
+    }) => {
       setSlots(vs.slots);
       setMyVote(vs.myVote);
       setConfirmedId(vs.confirmedId);
       setTotalMembers(vs.totalMembers);
+      setIsOwner(vs.isOwner);
     },
     [],
   );
 
   const castVote = useCallback(
     async (slotId: string) => {
-      applyVoteState(await apiCastVote(meetingId, slotId));
+      const vs = await apiCastVote(meetingId, slotId);
+      applyVoteState(vs);
+      return vs;
     },
     [meetingId, applyVoteState],
   );
 
   const confirm = useCallback(
     async (slotId: string) => {
-      applyVoteState(await apiConfirmSlot(meetingId, slotId));
+      const vs = await apiConfirmSlot(meetingId, slotId);
+      applyVoteState(vs);
+      return vs;
     },
     [meetingId, applyVoteState],
   );
@@ -138,10 +154,11 @@ function MeetingProvider({ children }: PropsWithChildren) {
       slots,
       myVote,
       confirmedId,
+      isOwner,
       castVote,
       confirm,
     }),
-    [meetingId, name, loading, error, totalMembers, days, times, availability, slots, myVote, confirmedId, castVote, confirm],
+    [meetingId, name, loading, error, totalMembers, days, times, availability, slots, myVote, confirmedId, isOwner, castVote, confirm],
   );
 
   return <MeetingContext.Provider value={value}>{children}</MeetingContext.Provider>;

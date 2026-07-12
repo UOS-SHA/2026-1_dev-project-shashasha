@@ -60,10 +60,10 @@ public class MatchingService {
     }
 
     /** 이 모임 멤버들의 이름(닉네임) 목록. 활동 기록의 참석자 선택 등에 쓴다. */
-    @Transactional
+    @Transactional(readOnly = true)
     public List<String> getMemberNames(Long meetingId, Long userId) {
         requireMeeting(meetingId);
-        ensureMember(meetingId, userId); // 접속자도 멤버로 포함시켜 이름이 빠지지 않게
+        requireMember(meetingId, userId);
         List<String> names = new ArrayList<>();
         for (MeetingMember member : memberRepository.findByMeetingId(meetingId)) {
             userRepository.findById(member.getUserId())
@@ -73,10 +73,10 @@ public class MatchingService {
     }
 
     /** 통합 시간표: 요일×시간 그리드의 가능 인원 + 골든타임 Top3 */
-    @Transactional
+    @Transactional(readOnly = true)
     public TimetableResponse getTimetable(Long meetingId, Long userId) {
         requireMeeting(meetingId);
-        ensureMember(meetingId, userId);
+        requireMember(meetingId, userId);
 
         List<List<Schedule>> memberSchedules = loadMemberSchedules(meetingId);
         int totalMembers = memberSchedules.size();
@@ -99,21 +99,31 @@ public class MatchingService {
         return new TimetableResponse(totalMembers, dayLabels, timeLabels, availability, golden);
     }
 
-    /** 투표 화면 상태: 골든 슬롯(득표 포함) + 내 표 + 확정 여부 */
-    @Transactional
+    /** 투표 화면 상태: 골든 슬롯(득표 포함) + 내 표 + 확정 여부 + 방장 여부 */
+    @Transactional(readOnly = true)
     public VoteStateResponse getVoteState(Long meetingId, Long userId) {
         Meeting meeting = requireMeeting(meetingId);
-        ensureMember(meetingId, userId);
+        requireMember(meetingId, userId);
+        return buildVoteState(meeting, userId);
+    }
 
+    /** 현재 저장된 상태 그대로 투표 화면 응답을 만든다. (조회/투표/확정 공통) */
+    private VoteStateResponse buildVoteState(Meeting meeting, Long userId) {
+        Long meetingId = meeting.getId();
         List<List<Schedule>> memberSchedules = loadMemberSchedules(meetingId);
         List<GoldenSlotResponse> golden = buildGoldenSlots(memberSchedules, countVotes(meetingId));
         String myVote = voteRepository.findByMeetingIdAndUserId(meetingId, userId)
                 .map(Vote::getSlotCode).orElse(null);
+        boolean isOwner = userId.equals(meeting.getCreatorId());
 
-        return new VoteStateResponse(memberSchedules.size(), golden, myVote, meeting.getConfirmedSlot());
+        return new VoteStateResponse(memberSchedules.size(), golden, myVote,
+                meeting.getConfirmedSlot(), isOwner);
     }
 
-    /** 투표(또는 재투표): 내 표를 slotId 시간대로 옮긴다. 확정된 모임은 투표할 수 없다. */
+    /**
+     * 투표(또는 재투표): 내 표를 slotId 시간대로 옮긴다. 확정된 모임은 투표할 수 없다.
+     * 이 표까지 포함해 "멤버 전원"이 투표를 마치면 최다 득표 시간대로 자동 확정된다.
+     */
     @Transactional
     public VoteStateResponse vote(Long meetingId, Long userId, String slotId) {
         Meeting meeting = requireMeeting(meetingId);
@@ -122,7 +132,7 @@ public class MatchingService {
                     "이미 일정이 확정된 모임이라 투표할 수 없어요");
         }
         requireValidSlot(slotId);
-        ensureMember(meetingId, userId);
+        requireMember(meetingId, userId);
 
         voteRepository.findByMeetingIdAndUserId(meetingId, userId)
                 .ifPresentOrElse(
@@ -130,21 +140,40 @@ public class MatchingService {
                         () -> voteRepository.save(new Vote(meetingId, userId, slotId)) // 첫 투표
                 );
 
-        return getVoteState(meetingId, userId);
+        autoConfirmIfEveryoneVoted(meeting); // 전원 투표 완료 시 자동 확정
+
+        return buildVoteState(meeting, userId);
     }
 
-    /** 확정: 투표 결과 중 한 시간대로 모임 일정을 확정한다. 라벨은 실제 날짜로 만든다. */
+    /**
+     * 확정: 방장이 투표를 조기 마감한다(예: 끝까지 투표 안 하는 멤버가 있을 때).
+     * 평소에는 전원 투표 완료 시 자동 확정되므로 이 기능은 방장용 예비 수단이다.
+     * 확정 시간대는 클라이언트가 아니라 서버가 현재 최다 득표로 직접 결정한다.
+     */
     @Transactional
     public VoteStateResponse confirm(Long meetingId, Long userId, String slotId) {
         Meeting meeting = requireMeeting(meetingId);
-        requireValidSlot(slotId);
-        ensureMember(meetingId, userId);
+        requireMember(meetingId, userId);
+
+        if (!userId.equals(meeting.getCreatorId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "NOT_MEETING_OWNER",
+                    "모임 방장만 일정을 확정할 수 있어요");
+        }
+        if (meeting.getConfirmedSlot() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "ALREADY_CONFIRMED",
+                    "이미 확정된 모임이에요");
+        }
+
+        String winner = winningSlot(meetingId);
+        if (winner == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "NO_VOTES_YET",
+                    "아직 아무도 투표하지 않아 확정할 수 없어요");
+        }
 
         // "sat-18" → "7월 5일 토 · 오후 6:00" 처럼 실제 날짜 라벨로 (모임 카드 날짜 표기 통일)
-        String label = SlotLabel.dateLabel(slotId, LocalDate.now());
-        meeting.confirm(slotId, label); // 상태 CONFIRMED + 홈 카드 라벨 갱신 (dirty checking 으로 UPDATE)
+        meeting.confirm(winner, SlotLabel.dateLabel(winner, LocalDate.now()));
 
-        return getVoteState(meetingId, userId);
+        return buildVoteState(meeting, userId);
     }
 
     // ───────────────────────── 내부 계산 ─────────────────────────
@@ -215,11 +244,54 @@ public class MatchingService {
         return counts;
     }
 
-    /** 요청한 사용자가 아직 이 모임 멤버가 아니면 멤버로 추가한다. */
-    private void ensureMember(Long meetingId, Long userId) {
+    /** 요청자가 이 모임의 멤버가 아니면 403. (예전의 "조회만 해도 자동 가입" 버그를 막는다) */
+    private void requireMember(Long meetingId, Long userId) {
         if (!memberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
-            memberRepository.save(new MeetingMember(meetingId, userId));
+            throw new ApiException(HttpStatus.FORBIDDEN, "NOT_A_MEMBER",
+                    "이 모임의 멤버가 아니에요");
         }
+    }
+
+    /**
+     * 멤버 전원이 투표를 마쳤으면 최다 득표 시간대로 자동 확정한다.
+     * (표 수 == 멤버 수. 한 명당 표는 하나이므로 표 수가 멤버 수에 도달하면 전원 완료다.)
+     */
+    private void autoConfirmIfEveryoneVoted(Meeting meeting) {
+        Long meetingId = meeting.getId();
+        long memberCount = memberRepository.countByMeetingId(meetingId);
+        long voteCount = voteRepository.findByMeetingId(meetingId).size();
+        if (memberCount == 0 || voteCount < memberCount) {
+            return; // 아직 다 안 함
+        }
+        String winner = winningSlot(meetingId);
+        if (winner != null) {
+            meeting.confirm(winner, SlotLabel.dateLabel(winner, LocalDate.now()));
+        }
+    }
+
+    /**
+     * 현재 최다 득표 시간대 코드. 동점이면 가능 인원이 많은 쪽,
+     * 그래도 같으면 코드 사전순으로 결정한다(항상 같은 결과가 나오도록). 표가 없으면 null.
+     */
+    private String winningSlot(Long meetingId) {
+        Map<String, Integer> voteCounts = countVotes(meetingId);
+        if (voteCounts.isEmpty()) {
+            return null;
+        }
+        List<List<Schedule>> memberSchedules = loadMemberSchedules(meetingId);
+        return voteCounts.entrySet().stream()
+                .max(Comparator
+                        .comparingInt(Map.Entry<String, Integer>::getValue)                       // 득표 많은 순
+                        .thenComparingInt(e -> availabilityOf(e.getKey(), memberSchedules))        // 동점 → 가능 인원
+                        .thenComparing(Map.Entry::getKey, Comparator.reverseOrder()))             // 그래도 동점 → 코드 사전순(작은 쪽)
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    /** 특정 슬롯 코드("sat-18")의 가능 인원 수. (동점 처리용) */
+    private int availabilityOf(String slotCode, List<List<Schedule>> memberSchedules) {
+        DayDef day = requireValidSlot(slotCode);
+        return availableCount(memberSchedules, day.dayOfWeek(), startHourOf(slotCode));
     }
 
     private Meeting requireMeeting(Long meetingId) {
