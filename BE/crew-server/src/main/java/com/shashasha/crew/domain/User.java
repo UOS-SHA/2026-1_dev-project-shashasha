@@ -68,6 +68,13 @@ public class User {
         this.joinedAt = LocalDateTime.now();
     }
 
+    /** 프로필 수정: 닉네임/아이디/한줄소개를 새 값으로 교체한다. (@Transactional 안에서 호출하면 JPA 가 자동 반영) */
+    public void updateProfile(String nickname, String handle, String bio) {
+        this.nickname = nickname;
+        this.handle = handle;
+        this.bio = bio;
+    }
+
     // 조회용 getter 들
     public Long getId() { return id; }
     public String getEmail() { return email; }

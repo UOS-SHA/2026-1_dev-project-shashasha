@@ -1,10 +1,14 @@
 package com.shashasha.crew.controller;
 
 import com.shashasha.crew.dto.UserProfileResponse;
+import com.shashasha.crew.dto.UserUpdateRequest;
 import com.shashasha.crew.security.JwtAuthFilter;
 import com.shashasha.crew.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,5 +32,13 @@ public class UserController {
     public UserProfileResponse getMe(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute(JwtAuthFilter.USER_ID_ATTRIBUTE);
         return userService.getMyProfile(userId);
+    }
+
+    /** PUT /users/me → 토큰 주인의 프로필(닉네임/아이디/한줄소개) 수정 */
+    @PutMapping("/me")
+    public UserProfileResponse updateMe(HttpServletRequest request,
+                                        @RequestBody @Valid UserUpdateRequest body) {
+        Long userId = (Long) request.getAttribute(JwtAuthFilter.USER_ID_ATTRIBUTE);
+        return userService.updateMyProfile(userId, body);
     }
 }
