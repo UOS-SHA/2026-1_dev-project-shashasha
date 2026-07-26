@@ -3,7 +3,6 @@ package com.shashasha.crew.service;
 import com.shashasha.crew.config.DataSeeder;
 import com.shashasha.crew.domain.Meeting;
 import com.shashasha.crew.domain.MeetingMember;
-import com.shashasha.crew.domain.MeetingStatus;
 import com.shashasha.crew.domain.Vote;
 import com.shashasha.crew.repository.MeetingMemberRepository;
 import com.shashasha.crew.repository.MeetingRepository;
@@ -93,7 +92,7 @@ public class StarterMeetingSeeder {
 
         int memberCount = memberEmails.size() + 1; // 샘플들 + 새 사용자 본인
         Meeting meeting = new Meeting(starter.name(), starter.emoji(), memberCount,
-                "투표 진행 중", MeetingStatus.VOTING);
+                "투표 진행 중");
         meeting.assignCreator(newUserId); // 새 사용자가 방장
         Meeting saved = meetingRepository.save(meeting);
         Long meetingId = saved.getId();

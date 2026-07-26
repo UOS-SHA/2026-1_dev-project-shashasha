@@ -35,6 +35,7 @@
 | `403 Forbidden`    | 권한 없음 (남의 데이터 수정 시도 등) |
 | `404 Not Found`    | 대상 없음                            |
 | `409 Conflict`     | 중복 (이미 가입한 이메일 등)         |
+| `429 Too Many Requests` | 로그인 시도 제한에 걸림         |
 
 ### 에러 응답 형식 (공통)
 
@@ -45,6 +46,23 @@
   "message": "모임 이름은 필수입니다"
 }
 ```
+
+### 보안 관련 검증 규칙 (보안 자문서 대응으로 추가)
+
+| 엔드포인트 | 규칙 | 위반 시 |
+| ---------- | ---- | ------- |
+| `POST /auth/signup` | 비밀번호 12자 이상 72자 이하 | 400 `VALIDATION_ERROR` |
+| `POST /auth/signup` | 이메일은 소문자로 정규화해 저장, 대소문자 무시 중복 검사 | 409 `EMAIL_DUPLICATED` |
+| `POST /auth/login` | 계정별 5회 / IP별 20회 실패 시 5분 잠금(반복되면 최대 1시간까지 2배씩 증가) | 429 `TOO_MANY_LOGIN_ATTEMPTS` |
+| `POST /auth/login` | 계정 없음과 비밀번호 불일치를 응답·응답시간 모두 동일하게 처리 | 401 `LOGIN_FAILED` |
+| `PUT /users/me` | `handle` 형식 `@` + 영문·숫자·`. _ + -` 2~20자, 저장은 소문자 | 400 `VALIDATION_ERROR` |
+| `PUT /users/me` | `handle` 은 전체 사용자에서 유일 | 409 `HANDLE_DUPLICATED` |
+| `POST`·`PUT /schedules` | `days` 각 값 0~6, `sh`·`eh` 0~23, `sm`·`em` 0~59 | 400 `VALIDATION_ERROR` |
+| `POST`·`PUT /schedules` | 시작 시각 < 종료 시각 (자정 넘김 미지원) | 400 `INVALID_SCHEDULE_TIME_RANGE` |
+| `POST`·`PUT /schedules` | 같은 요일 중복 선택 불가 | 400 `DUPLICATED_SCHEDULE_DAY` |
+
+`DELETE /meetings/{id}` 는 모임의 멤버십·투표·활동기록을 같은 트랜잭션에서 함께 삭제한다
+(되돌릴 수 없음). 배포 시 필요한 DB 조치는 [DEPLOYMENT_SECURITY.md](DEPLOYMENT_SECURITY.md) 참고.
 
 ### 구현 우선순위
 
@@ -308,6 +326,19 @@
 { "id": 5, "name": "주말 등산 모임", "emoji": "🥾", "members": 4, "status": "voting" }
 ```
 
+**권한 규칙 (모임)**
+
+| Method | Path              | 필요 권한 | 실패 응답                             |
+| ------ | ----------------- | --------- | ------------------------------------- |
+| GET    | `/meetings/{id}`  | 멤버      | 403 `NOT_A_MEMBER`                    |
+| PUT    | `/meetings/{id}`  | 방장      | 403 `NOT_A_MEMBER` / `NOT_MEETING_OWNER` |
+| DELETE | `/meetings/{id}`  | 방장      | 403 `NOT_A_MEMBER` / `NOT_MEETING_OWNER` |
+
+- `status` 는 **응답에만** 있는 계산된 값입니다. 요청 body 로 보내도 무시되며, 서버가 확정 슬롯 유무로
+  `voting` / `confirmed` 를 결정합니다. 확정은 `POST /meetings/{id}/confirm` 으로만 일어납니다.
+- `POST /archives` 는 `meetingId` 가 **내가 멤버인 모임**이어야 합니다. 아니면 404 `MEETING_NOT_FOUND`
+  (존재 여부를 알려주지 않기 위해 "없음"과 같은 응답을 씁니다).
+
 ---
 
 ### 2-E. 일정 매칭 (시간표 · 투표 · 확정) 🟢
@@ -402,7 +433,6 @@
 
 ### 2-H. 단톡방 · 채팅 ⚪ 나중 (실시간)
 
-> ⚠️ 실시간 채팅은 일반 REST가 아니라 **WebSocket**이 필요해서 난이도가 높습니다. **맨 마지막에** 별도로 진행하세요. 우선은 "투표 공유" 같은 핵심만 REST로 흉내낼 수 있습니다.
 
 | 우선 | Method | Path                        | 설명                    |
 | ---- | ------ | --------------------------- | ----------------------- |

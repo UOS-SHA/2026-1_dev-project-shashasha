@@ -62,7 +62,9 @@ public class FriendService {
     /** @아이디(handle)로 친구 추가 */
     @Transactional
     public FriendResponse add(Long ownerId, String handle) {
-        User target = userRepository.findByHandle(handle.trim())
+        // 저장된 handle 은 항상 normalizeHandle() 형태이므로, 검색어도 같은 형태로 맞춘 뒤 찾는다.
+        // ("Minji", "minji", "@MINJI" 가 모두 같은 사람을 가리키게 한다)
+        User target = userRepository.findByHandle(User.normalizeHandle(handle))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND",
                         "해당 아이디의 사용자를 찾을 수 없습니다"));
 

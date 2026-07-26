@@ -27,12 +27,15 @@ public class Meeting {
 
     private String nextLabel;   // 예: "6월 13일 토 · 오후 2:00"
 
+    // 투표로 확정된 시간대 코드(예: "sat-14"). 아직 확정 전이면 null.
+    // 확정 여부의 유일한 판단 근거다 (status 컬럼이 아니라 이 값을 본다).
+    private String confirmedSlot;
+
+    // 확정 상태를 DB 컬럼으로도 남긴다(조회 쿼리·기존 데이터 호환용).
+    // 쓰기는 confirm() 한 곳에서만 하고, 읽기는 getStatus() 가 confirmedSlot 으로 계산한다.
     @Enumerated(EnumType.STRING) // enum 을 "CONFIRMED" 같은 문자열로 저장 (숫자보다 안전)
     @Column(nullable = false)
     private MeetingStatus status;
-
-    // 투표로 확정된 시간대 코드(예: "sat-14"). 아직 확정 전이면 null.
-    private String confirmedSlot;
 
     // 모임을 만든 사람(방장)의 userId. 방장만 강제 확정 등 권한을 가진다.
     private Long creatorId;
@@ -41,23 +44,24 @@ public class Meeting {
     protected Meeting() {
     }
 
-    // 새 모임을 코드에서 만들 때 쓰는 생성자 (id 는 DB가 채우므로 받지 않음)
-    public Meeting(String name, String emoji, int memberCount, String nextLabel, MeetingStatus status) {
+    // 새 모임을 코드에서 만들 때 쓰는 생성자 (id 는 DB가 채우므로 받지 않음).
+    // 새 모임은 확정 슬롯이 없으니 언제나 VOTING 으로 시작한다 — 상태를 외부에서 받지 않는다.
+    public Meeting(String name, String emoji, int memberCount, String nextLabel) {
         this.name = name;
         this.emoji = emoji;
         this.memberCount = memberCount;
         this.nextLabel = nextLabel;
-        this.status = status;
+        this.status = MeetingStatus.VOTING;
     }
 
-    // 기존 모임의 내용을 통째로 바꾼다 (PUT /meetings/{id} 에서 사용).
+    // 기존 모임의 표시 정보를 바꾼다 (PUT /meetings/{id} 에서 사용).
     // 엔티티에 setter 를 흩어놓지 않고, "한 번에 갱신"하는 메서드로 모아 두면 변경 지점이 명확하다.
-    public void update(String name, String emoji, int memberCount, String nextLabel, MeetingStatus status) {
+    // status / confirmedSlot 은 일부러 받지 않는다: 확정은 confirm() 만의 책임이다.
+    public void update(String name, String emoji, int memberCount, String nextLabel) {
         this.name = name;
         this.emoji = emoji;
         this.memberCount = memberCount;
         this.nextLabel = nextLabel;
-        this.status = status;
     }
 
     // 투표 결과로 시간대를 확정한다: 상태를 CONFIRMED 로 바꾸고, 홈 카드에 보일 라벨도 갱신한다.
@@ -80,5 +84,16 @@ public class Meeting {
     public String getEmoji() { return emoji; }
     public int getMemberCount() { return memberCount; }
     public String getNextLabel() { return nextLabel; }
-    public MeetingStatus getStatus() { return status; }
+
+    /** 확정 여부. 투표 가능 판단(MatchingService)과 화면 표시가 같은 값을 보게 하는 기준. */
+    public boolean isConfirmed() { return confirmedSlot != null; }
+
+    /**
+     * 표시용 상태. 저장된 status 컬럼을 그대로 돌려주지 않고 확정 슬롯에서 계산한다.
+     * 예전에는 클라이언트가 status 를 직접 지정할 수 있어서 "화면은 확정인데 투표는 계속 되는"
+     * 모순 상태가 저장될 수 있었다. 이제 두 값은 구조적으로 어긋날 수 없다.
+     */
+    public MeetingStatus getStatus() {
+        return isConfirmed() ? MeetingStatus.CONFIRMED : MeetingStatus.VOTING;
+    }
 }

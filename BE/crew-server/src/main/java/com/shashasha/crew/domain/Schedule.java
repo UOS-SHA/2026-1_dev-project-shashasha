@@ -15,7 +15,15 @@ import java.util.List;
  * (JwtAuthFilter 가 넣어준 토큰 주인의 id 로 조회/수정/삭제 권한을 가른다.)
  */
 @Entity
-@Table(name = "schedule")
+// 애플리케이션 검증(ScheduleRequest, ScheduleService)이 뚫리거나 다른 경로로 데이터가 들어와도
+// 존재할 수 없는 시각이 저장되지 않게 DB 에도 같은 규칙을 건다.
+// 주의: ddl-auto=update 는 테이블을 "새로 만들 때"만 이 제약을 넣는다. 이미 있는 테이블에는
+//      추가해주지 않으므로, 기존 DB 에 반영하려면 스키마를 새로 만들거나 ALTER TABLE 을 직접 실행해야 한다.
+@Table(name = "schedule", check = @CheckConstraint(
+        name = "chk_schedule_time",
+        constraint = "start_hour BETWEEN 0 AND 23 AND end_hour BETWEEN 0 AND 23"
+                + " AND start_minute BETWEEN 0 AND 59 AND end_minute BETWEEN 0 AND 59"
+                + " AND (start_hour * 60 + start_minute) < (end_hour * 60 + end_minute)"))
 public class Schedule {
 
     @Id
@@ -33,9 +41,12 @@ public class Schedule {
     private ScheduleType type;        // FE 의 tp (fixed/variable)
 
     // 요일 배열(0=월 ~ 6=일). @ElementCollection 으로 schedule_days 보조 테이블에 저장된다.
+    // 0~6 을 벗어난 요일은 MatchingService 가 어떤 후보 시간대와도 매칭하지 못해 조용히 무시되므로,
+    // 저장 단계에서 막는다.
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "schedule_days", joinColumns = @JoinColumn(name = "schedule_id"))
-    @Column(name = "day_index")
+    @Column(name = "day_index", check = @CheckConstraint(name = "chk_schedule_day_index",
+            constraint = "day_index BETWEEN 0 AND 6"))
     private List<Integer> days = new ArrayList<>();
 
     @Column(nullable = false)

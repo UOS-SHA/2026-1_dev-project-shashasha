@@ -1,6 +1,6 @@
 import axios, { AxiosError } from "axios";
 
-import { getAuthToken } from "@/store/auth";
+import { getAuthToken, notifyUnauthorized } from "./session";
 
 const baseURL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -20,6 +20,23 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+/**
+ * 토큰이 무효해진 경우(만료·서명키 교체·계정 삭제) 서버는 401 을 돌려준다.
+ * 이때 저장된 토큰을 정리하지 않으면 앱은 로그인된 것처럼 보이면서 모든 화면에서 인증 오류만 반복한다.
+ *
+ * 401 에만 반응한다는 점이 중요하다. 네트워크 장애나 500 까지 로그아웃으로 처리하면
+ * 서버 재시작·비행기 모드처럼 토큰과 무관한 상황에서 사용자를 쫓아내게 된다.
+ */
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (error instanceof AxiosError && error.response?.status === 401) {
+      notifyUnauthorized();
+    }
+    return Promise.reject(error);
+  },
+);
 
 /**
  * 백엔드 에러 응답을 사용자에게 보여줄 한 줄 메시지로 정규화한다.

@@ -13,7 +13,7 @@ const notices = [
 ];
 
 export default function MeetingDashboardScreen() {
-  const { meetingId, name, slots, confirmedId } = useMeeting();
+  const { meetingId, name, slots, confirmedId, isOwner } = useMeeting();
   const confirmed = slots.find((slot) => slot.id === confirmedId);
 
   const onDelete = () => {
@@ -41,9 +41,14 @@ export default function MeetingDashboardScreen() {
           <ThemedText style={styles.navIcon}>‹</ThemedText>
         </Pressable>
         <ThemedText style={styles.headerTitle} numberOfLines={1}>{name || '모임'}</ThemedText>
-        <Pressable style={styles.headerButton} onPress={onDelete}>
-          <ThemedText style={styles.deleteText}>삭제</ThemedText>
-        </Pressable>
+        {/* 삭제는 방장만 가능하다(서버도 403 으로 막는다). 방장이 아니면 자리만 비워 정렬을 유지한다. */}
+        {isOwner ? (
+          <Pressable style={styles.headerButton} onPress={onDelete}>
+            <ThemedText style={styles.deleteText}>삭제</ThemedText>
+          </Pressable>
+        ) : (
+          <View style={styles.headerButton} />
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

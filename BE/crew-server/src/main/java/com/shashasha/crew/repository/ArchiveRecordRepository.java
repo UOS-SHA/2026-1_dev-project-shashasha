@@ -21,4 +21,7 @@ public interface ArchiveRecordRepository extends JpaRepository<ArchiveRecord, Lo
     long countByUserIdAndMeetingId(Long userId, Long meetingId);
 
     Optional<ArchiveRecord> findByIdAndUserId(Long id, Long userId);
+
+    /** 이 모임의 활동 기록 전체 삭제 (모임 삭제 시 정리용) */
+    void deleteByMeetingId(Long meetingId);
 }

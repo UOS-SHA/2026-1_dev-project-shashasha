@@ -50,17 +50,20 @@ public class MeetingController {
         return meetingService.create(request, userId);
     }
 
-    /** PUT /meetings/{id} → 모임 수정. 수정된 모임을 응답. */
+    /** PUT /meetings/{id} → 모임 수정 (방장만). 수정된 모임을 응답. */
     @PutMapping("/{id}")
-    public MeetingResponse updateMeeting(@PathVariable Long id,
-                                         @Valid @RequestBody MeetingCreateRequest request) {
-        return meetingService.update(id, request);
+    public MeetingResponse updateMeeting(HttpServletRequest httpRequest,
+                                        @PathVariable Long id,
+                                        @Valid @RequestBody MeetingCreateRequest request) {
+        Long userId = (Long) httpRequest.getAttribute(JwtAuthFilter.USER_ID_ATTRIBUTE);
+        return meetingService.update(id, userId, request);
     }
 
-    /** DELETE /meetings/{id} → 모임 삭제. 성공하면 204 No Content. */
+    /** DELETE /meetings/{id} → 모임 삭제 (방장만). 성공하면 204 No Content. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteMeeting(@PathVariable Long id) {
-        meetingService.delete(id);
+    public void deleteMeeting(HttpServletRequest httpRequest, @PathVariable Long id) {
+        Long userId = (Long) httpRequest.getAttribute(JwtAuthFilter.USER_ID_ATTRIBUTE);
+        meetingService.delete(id, userId);
     }
 }

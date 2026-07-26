@@ -7,6 +7,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -16,6 +18,9 @@ import java.util.List;
  * 조회만 해도 멤버가 되는 버그가 있었다. 이제 모임은 회원가입 시 각 사용자별로 따로 만들어지므로
  * (StarterMeetingSeeder), 여기서는 그 스타터 모임에 함께 넣어줄 "샘플 멤버 5명 + 그들의 개인 일정"만
  * 심는다. 덕분에 새 사용자도 통합 시간표가 채워진 상태에서 투표를 경험할 수 있다.
+ *
+ * 이 샘플들은 "시간표를 채우는 데이터"일 뿐 로그인 대상이 아니다 —— 비밀번호를 무작위로 만들고
+ * 버리기 때문에 아무도 이 계정으로 로그인할 수 없다. 자세한 이유는 seedUser() 주석 참고.
  */
 @Component
 public class DataSeeder implements CommandLineRunner {
@@ -66,18 +71,35 @@ public class DataSeeder implements CommandLineRunner {
         seedSchedule(haneul, "봉사활동", ScheduleType.VARIABLE, List.of(6), 10, 0, 12, 0);// 일 10-12
     }
 
-    /** 샘플 사용자 한 명을 만들고 id 를 돌려준다. (비밀번호는 모두 "test1234") */
+    /**
+     * 샘플 사용자 한 명을 만들고 id 를 돌려준다.
+     *
+     * 비밀번호는 매번 새로 만드는 무작위 값이고 어디에도 출력하지 않는다 —— 즉 이 계정으로는
+     * 아무도 로그인할 수 없다. 예전에는 공통 비밀번호("test1234")를 코드에 적어 두어서,
+     * 저장소를 본 사람이 누구나 정상 계정으로 로그인할 수 있었다. 그리고 새 사용자가 가입할 때마다
+     * 이 샘플들이 그 사용자의 스타터 모임 멤버로 들어가므로(StarterMeetingSeeder),
+     * 로그인만 가능해도 남의 모임 정보와 투표에 접근할 수 있었다.
+     *
+     * 샘플은 "통합 시간표를 채우는 데이터"로만 필요하고 로그인할 이유가 없어서, 데모 화면은
+     * 그대로 두고 로그인 경로만 없앤다.
+     */
     private Long seedUser(String email, String nickname, String bio) {
-        String handle = "@" + email.split("@")[0];
         User user = new User(
-                email,
-                passwordEncoder.encode("test1234"),
+                User.normalizeEmail(email),
+                passwordEncoder.encode(unguessablePassword()),
                 nickname,
                 bio,
-                handle,
+                User.normalizeHandle(email.split("@")[0]),
                 true, true, true, true, false
         );
         return userRepository.save(user).getId();
+    }
+
+    /** 아무도(우리도) 모르는 비밀번호. 생성 후 버려서 로그인 불가 상태로 만든다. */
+    private String unguessablePassword() {
+        byte[] random = new byte[32];
+        new SecureRandom().nextBytes(random);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(random);
     }
 
     private void seedSchedule(Long userId, String title, ScheduleType type, List<Integer> days,

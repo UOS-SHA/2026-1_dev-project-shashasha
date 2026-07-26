@@ -1,6 +1,8 @@
 package com.shashasha.crew.dto;
 
+import com.shashasha.crew.domain.User;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -15,7 +17,10 @@ public record UserUpdateRequest(
         @Size(max = 12, message = "닉네임은 최대 12자입니다")
         String nickname,
 
-        @Size(max = 20, message = "아이디는 최대 20자입니다")
+        // 친구 추가가 이 값으로 사람을 찾으므로 형식을 고정한다. 중복 검사는 UserService 담당.
+        @Size(max = 21, message = "아이디는 @ 포함 최대 21자입니다")
+        @Pattern(regexp = User.HANDLE_REGEX,
+                message = "아이디는 @ 뒤에 영문·숫자·. _ + - 를 2~20자로 적어주세요")
         String handle,
 
         @Size(max = 40, message = "한줄 소개는 최대 40자입니다")
