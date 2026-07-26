@@ -13,12 +13,12 @@ export type Meeting = {
 };
 
 // POST/PUT /meetings 요청 body (백엔드 MeetingCreateRequest 와 대응).
+// status 는 보내지 않는다: 확정 여부는 서버가 투표 결과로 정하고, 확정은 POST /meetings/{id}/confirm 담당.
 export type MeetingPayload = {
   name: string;
   emoji?: string;
   members: number;
   nextLabel?: string;
-  status: MeetingStatus;
 };
 
 /** GET /meetings → 내 모임 목록 */

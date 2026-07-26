@@ -33,7 +33,13 @@ public class User {
     @Column(length = 40)
     private String bio;                      // 한줄 소개 (최대 40자, 선택)
 
-    private String handle;                   // @아이디 (가입 시 이메일 앞부분으로 자동 생성)
+    // @아이디 (가입 시 이메일 앞부분으로 자동 생성).
+    // 친구 추가가 이 값으로 사람을 찾으므로 중복되면 "누구를 추가한 것인지"가 불확정해진다 → 유니크.
+    // 주의: ddl-auto=update 는 테이블을 "새로 만들 때"만 이 유니크 제약을 넣는다. 이미 있는 테이블에
+    //      반영하려면 중복 handle 을 먼저 정리한 뒤 인덱스를 직접 만들어야 한다.
+    // 값은 항상 normalizeHandle() 을 통과한 형태로 저장한다.
+    @Column(unique = true, length = 21)
+    private String handle;
 
     private String profileImageUrl;          // 프로필 사진 URL (선택)
 
@@ -46,6 +52,33 @@ public class User {
     private boolean agreedService;           // (필수) 서비스 약관 동의
     private boolean agreedPrivacy;           // (필수) 개인정보 처리방침 동의
     private boolean agreedMarketing;         // (선택) 마케팅 수신 동의
+
+    /**
+     * @아이디로 허용하는 형태: 맨 앞의 @ 뒤에 영문/숫자/. _ + - 를 2~20자.
+     * 대소문자는 받아들이되 저장은 소문자로 통일한다(normalizeHandle).
+     */
+    public static final String HANDLE_REGEX = "@[A-Za-z0-9._+-]{2,20}";
+
+    /**
+     * 저장·조회에 쓸 표준 형태로 바꾼다: 공백 제거 → 소문자 → 맨 앞에 @ 보장.
+     * "Minji", " @minji ", "MINJI" 가 모두 "@minji" 가 되어야 같은 사람으로 취급된다.
+     * 형식 검증은 하지 않는다(그건 UserUpdateRequest 의 @Pattern 담당).
+     */
+    public static String normalizeHandle(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim().toLowerCase();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.startsWith("@") ? trimmed : "@" + trimmed;
+    }
+
+    /** 이메일도 대소문자 차이로 같은 사람이 두 계정을 갖지 않게 표준화한다. */
+    public static String normalizeEmail(String raw) {
+        return raw == null ? null : raw.trim().toLowerCase();
+    }
 
     // JPA 는 빈 생성자가 반드시 필요하다 (규칙)
     protected User() {

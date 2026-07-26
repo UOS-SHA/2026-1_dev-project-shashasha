@@ -101,6 +101,14 @@ export default function ProfileEditScreen() {
   };
 
   // ─── 저장 처리 ───
+  // 서버가 저장하는 형태(@ + 소문자)로 맞춰 보낸다. 백엔드는 이 형식을 강제하므로(중복 방지를 위해
+  // 아이디가 유일해야 한다), @ 를 빼고 입력했다는 이유로 저장이 실패하지 않게 여기서 채워 준다.
+  const normalizeHandle = (raw: string): string => {
+    const trimmed = raw.trim().toLowerCase();
+    if (!trimmed) return '';
+    return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+  };
+
   // 실제 백엔드(PUT /users/me)에 닉네임/아이디/한줄소개를 저장한다.
   // (이모지는 아직 백엔드에 저장할 필드가 없어 화면 표시용으로만 유지)
   const handleSave = async () => {
@@ -109,7 +117,7 @@ export default function ProfileEditScreen() {
     try {
       await updateMyProfile({
         nickname: name.trim(),
-        handle: handle.trim(),
+        handle: normalizeHandle(handle),
         bio: bio.trim() ? bio.trim() : null,
       });
       showToast(); // 성공 시에만 토스트 → 애니메이션 종료 후 자동으로 router.back() 호출

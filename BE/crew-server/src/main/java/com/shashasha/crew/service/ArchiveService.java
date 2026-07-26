@@ -6,6 +6,7 @@ import com.shashasha.crew.dto.ArchiveCreateRequest;
 import com.shashasha.crew.dto.ArchiveResponse;
 import com.shashasha.crew.exception.ApiException;
 import com.shashasha.crew.repository.ArchiveRecordRepository;
+import com.shashasha.crew.repository.MeetingMemberRepository;
 import com.shashasha.crew.repository.MeetingRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -37,10 +38,13 @@ public class ArchiveService {
 
     private final ArchiveRecordRepository archiveRepository;
     private final MeetingRepository meetingRepository;
+    private final MeetingMemberRepository memberRepository;
 
-    public ArchiveService(ArchiveRecordRepository archiveRepository, MeetingRepository meetingRepository) {
+    public ArchiveService(ArchiveRecordRepository archiveRepository, MeetingRepository meetingRepository,
+                          MeetingMemberRepository memberRepository) {
         this.archiveRepository = archiveRepository;
         this.meetingRepository = meetingRepository;
+        this.memberRepository = memberRepository;
     }
 
     /** 내 기록 전체 (최신 회차부터) */
@@ -57,12 +61,16 @@ public class ArchiveService {
         return toResponse(getMineOrThrow(userId, id));
     }
 
-    /** 기록 생성 — 회차/요일/제목/색상은 서버가 자동으로 매긴다. 회차는 "그 모임" 기준. */
+    /**
+     * 기록 생성 — 회차/요일/제목/색상은 서버가 자동으로 매긴다. 회차는 "그 모임" 기준.
+     *
+     * meetingId 는 클라이언트가 보내는 값이라, 내가 그 모임의 멤버인지 반드시 확인해야 한다.
+     * 확인하지 않으면 남의 모임 번호를 넣어 내 기록에 붙일 수 있고, 응답의 meetingName 으로
+     * 모임 번호를 훑어 존재 여부와 이름을 알아낼 수도 있다.
+     */
     @Transactional
     public ArchiveResponse create(Long userId, ArchiveCreateRequest req) {
-        Meeting meeting = meetingRepository.findById(req.meetingId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEETING_NOT_FOUND",
-                        "모임을 찾을 수 없습니다"));
+        Meeting meeting = requireMyMeeting(userId, req.meetingId());
 
         int round = (int) archiveRepository.countByUserIdAndMeetingId(userId, meeting.getId()) + 1;
         String[] style = PALETTE[(round - 1) % PALETTE.length];
@@ -112,6 +120,23 @@ public class ArchiveService {
                 .map(Meeting::getName)
                 .orElse("");
         return ArchiveResponse.from(record, meetingName);
+    }
+
+    /**
+     * 내가 멤버인 모임만 돌려준다.
+     *
+     * "모임이 없음"과 "멤버가 아님"을 똑같이 404 로 응답한다. 여기서 403 을 주면 응답 코드만으로
+     * 어떤 모임 번호가 존재하는지 훑을 수 있기 때문이다. (GET /meetings/{id} 는 기존 FE 문구와
+     * 맞추려고 403 NOT_A_MEMBER 를 유지하고 있어 정책이 다르다 — 통일 여부는 별도 판단 필요)
+     */
+    private Meeting requireMyMeeting(Long userId, Long meetingId) {
+        if (!memberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "MEETING_NOT_FOUND",
+                    "모임을 찾을 수 없습니다");
+        }
+        return meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MEETING_NOT_FOUND",
+                        "모임을 찾을 수 없습니다"));
     }
 
     private ArchiveRecord getMineOrThrow(Long userId, Long id) {

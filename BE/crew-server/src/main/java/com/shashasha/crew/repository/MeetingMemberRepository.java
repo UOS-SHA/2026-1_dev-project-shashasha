@@ -22,4 +22,11 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
     boolean existsByMeetingIdAndUserId(Long meetingId, Long userId);
 
     long countByMeetingId(Long meetingId);
+
+    /**
+     * 이 모임의 멤버십 전체 삭제 (모임 삭제 시 정리용).
+     * meetingId 는 단순 숫자 컬럼이라 JPA 가 Meeting 과의 관계를 모른다 →
+     * 모임을 지워도 자동으로 따라 지워지지 않으므로 직접 지워야 한다.
+     */
+    void deleteByMeetingId(Long meetingId);
 }

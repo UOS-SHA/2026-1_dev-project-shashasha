@@ -48,7 +48,6 @@ export default function NewMeetingScreen() {
         emoji,
         members: 1,
         nextLabel: '투표 진행 중',
-        status: 'voting',
       });
       // 만든 모임(통합 시간표/투표 화면)으로 이동
       router.replace({ pathname: '/meeting', params: { id: String(created.id) } });

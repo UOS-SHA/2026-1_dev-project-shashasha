@@ -16,8 +16,11 @@ public record SignupRequest(
         @Email(message = "이메일 형식이 올바르지 않습니다")
         String email,
 
+        // 4자였을 때는 가능한 조합이 너무 적어 흔한 후보 목록만으로도 뚫린다.
+        // 길이가 곧 대입 공격 비용이므로 12자 이상을 요구한다. (로그인 시도 제한은 LoginAttemptGuard)
+        // 기존 계정의 비밀번호는 그대로 쓸 수 있고, 이 규칙은 새로 만드는 계정에만 적용된다.
         @NotBlank(message = "비밀번호는 필수입니다")
-        @Size(min = 4, message = "비밀번호는 4자 이상이어야 합니다")
+        @Size(min = 12, max = 72, message = "비밀번호는 12자 이상이어야 합니다")
         String password,
 
         @NotBlank(message = "닉네임은 필수입니다")

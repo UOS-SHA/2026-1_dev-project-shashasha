@@ -17,4 +17,7 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
     List<Vote> findByMeetingId(Long meetingId);
 
     Optional<Vote> findByMeetingIdAndUserId(Long meetingId, Long userId);
+
+    /** 이 모임의 표 전체 삭제 (모임 삭제 시 정리용) */
+    void deleteByMeetingId(Long meetingId);
 }

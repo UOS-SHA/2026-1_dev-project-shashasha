@@ -17,7 +17,12 @@ export default function EmailScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const valid = email.includes('@') && password.length >= 4;
+  // 가입은 서버와 같은 기준(12자 이상)으로 미리 걸러 준다.
+  // 로그인은 기존 계정의 짧은 비밀번호도 그대로 통해야 하므로 비어 있지만 않으면 된다.
+  const MIN_NEW_PASSWORD_LENGTH = 12;
+  const valid =
+    email.includes('@') &&
+    (mode === 'signup' ? password.length >= MIN_NEW_PASSWORD_LENGTH : password.length > 0);
 
   const handleSubmit = async () => {
     if (!valid || submitting) {
@@ -108,12 +113,18 @@ export default function EmailScreen() {
                 setPassword(text);
                 setError(null);
               }}
-              placeholder="비밀번호를 입력해 주세요"
+              placeholder={mode === 'signup' ? '12자 이상으로 입력해 주세요' : '비밀번호를 입력해 주세요'}
               placeholderTextColor={Onb.sub}
               secureTextEntry
+              autoCapitalize="none"
               editable={!submitting}
               style={styles.input}
             />
+            {mode === 'signup' ? (
+              <ThemedText style={styles.label}>
+                {`비밀번호는 ${MIN_NEW_PASSWORD_LENGTH}자 이상이어야 해요.`}
+              </ThemedText>
+            ) : null}
           </View>
 
           {error ? <ThemedText style={styles.errorNote}>{error}</ThemedText> : null}

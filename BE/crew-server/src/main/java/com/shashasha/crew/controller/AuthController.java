@@ -4,6 +4,7 @@ import com.shashasha.crew.dto.AuthResponse;
 import com.shashasha.crew.dto.LoginRequest;
 import com.shashasha.crew.dto.SignupRequest;
 import com.shashasha.crew.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -29,9 +30,12 @@ public class AuthController {
         return authService.signup(request);
     }
 
-    /** POST /auth/login → 로그인. 성공하면 200 과 토큰+사용자 정보를 응답. */
+    /**
+     * POST /auth/login → 로그인. 성공하면 200 과 토큰+사용자 정보를 응답.
+     * 실패가 반복되면 429 (TOO_MANY_LOGIN_ATTEMPTS) 로 잠시 막힌다.
+     */
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public AuthResponse login(HttpServletRequest httpRequest, @Valid @RequestBody LoginRequest request) {
+        return authService.login(request, httpRequest.getRemoteAddr());
     }
 }
